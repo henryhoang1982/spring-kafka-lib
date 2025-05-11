@@ -1,0 +1,20 @@
+// kafka-metrics/build.gradle
+// Subproject specific configurations.
+// Most configurations are inherited from the root project.
+
+dependencies {
+    // Spring Boot Actuator for Micrometer metrics
+    // org.springframework.kafka:spring-kafka is inherited from the root project
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+}
+
+// This module is a library, not a runnable Spring Boot application.
+// Disable the bootJar task for this module.
+bootJar {
+    enabled = false
+}
+
+// Optionally, if you want to produce a standard JAR (not an executable Spring Boot JAR):
+jar {
+    enabled = true
+} 

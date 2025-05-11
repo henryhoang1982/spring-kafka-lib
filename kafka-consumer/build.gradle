@@ -1,0 +1,7 @@
+// kafka-consumer/build.gradle
+// Subproject specific configurations.
+// Most configurations are inherited from the root project.
+
+dependencies {
+    implementation project(':modules:kafka-metrics')
+} 

@@ -1,0 +1,16 @@
+// kafka-producer/build.gradle
+// Subproject specific configurations.
+// Most configurations are inherited from the root project.
+// This module currently has no additional specific dependencies or configurations.
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+// Example: If kafka-producer had a unique dependency:
+// dependencies {
+//   implementation 'some.unique:library:1.0.0'
+// }
+
+test {
+    useJUnitPlatform()
+} 

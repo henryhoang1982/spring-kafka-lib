@@ -1,0 +1,54 @@
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+  metrics:
+    tags:
+      application: ${spring.application.name:kafka-consumer-app}
+    export:
+      prometheus:
+        enabled: true
+
+spring:
+  application:
+    name: kafka-consumer
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:9092
+      group-id: my-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        # Max records per poll
+        max.poll.records: 5
+        # Auto-offset reset configuration (earliest to process all messages)
+        auto.offset.reset: earliest
+    listener:
+      # Listener type for batch consumption
+      type: batch
+
+# Configure logging
+logging:
+  level:
+    com.example.kafkametrics: DEBUG
+    org.apache.kafka: INFO
+
+# Metrics filtering configuration
+# List of metrics to expose, all others will be filtered out
+# You can use 'name.*' patterns to include a group of metrics
+metrics:
+  filter:
+    allowed:
+      - kafka.consumer.totalLag
+      # Uncomment lines below to add more metrics
+      # - jvm.memory.used
+      # - system.cpu.usage
+      # - kafka.*
+    
+app:
+  kafka:
+    topic: topic.x 

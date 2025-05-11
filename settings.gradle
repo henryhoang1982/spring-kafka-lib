@@ -1,0 +1,5 @@
+rootProject.name = 'spring-kafka-projects'
+
+include 'kafka-producer'
+include 'kafka-consumer'
+include 'modules:kafka-metrics' 
