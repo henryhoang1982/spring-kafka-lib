@@ -41,6 +41,7 @@ logging:
 # List of metrics to expose, all others will be filtered out
 # You can use 'name.*' patterns to include a group of metrics
 metrics:
+  updateIntervalMs: 5000
   filter:
     allowed:
       - kafka.consumer.totalLag

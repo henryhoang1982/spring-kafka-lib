@@ -34,6 +34,7 @@ public class TotalLagMetrics implements MeterBinder {
     private final String consumerGroupId;
     private final AtomicLong currentLag = new AtomicLong(0);
 
+
     public TotalLagMetrics(KafkaAdmin kafkaAdmin, @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
         this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
         this.consumerGroupId = consumerGroupId;
@@ -52,7 +53,7 @@ public class TotalLagMetrics implements MeterBinder {
         refreshLag();
     }
     
-    @Scheduled(fixedRate = 5000) // Refresh every 5 seconds
+    @Scheduled(fixedRateString = "#{@metricsFilterConfig.refreshIntervalMs}")
     public void refreshLag() {
         long lag = calculateTotalLag();
         if (lag >= 0) { // Only update if calculation was successful

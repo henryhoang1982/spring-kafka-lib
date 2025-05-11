@@ -4,7 +4,6 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.config.MeterFilterReply;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -19,6 +18,9 @@ public class MetricsFilterConfig {
     // Default to only allowing kafka.consumer.totalLag if no configuration provided
     @Value("${metrics.filter.allowed:}")
     private List<String> allowedMetricsList;
+
+    @Value("${metrics.updateIntervalMs:5000}")
+    public long refreshIntervalMs;
 
     @Bean
     public MeterFilter meterFilter() {
