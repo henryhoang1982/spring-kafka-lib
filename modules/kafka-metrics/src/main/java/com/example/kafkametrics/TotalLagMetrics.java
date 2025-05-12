@@ -66,7 +66,7 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
         refreshLag();
     }
     
-    @Scheduled(fixedRateString = "${management.cloudwatch.metrics.export.step}")
+    @Scheduled(fixedRateString = "${management.metrics.export.cloudwatch.step}")
     public void refreshLag() {
         long lag = calculateTotalLag();
         if (lag >= 0) { // Only update if calculation was successful
