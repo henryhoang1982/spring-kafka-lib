@@ -49,8 +49,8 @@ export abstract class BaseServiceStack extends cdk.Stack {
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: props.serviceName }),
       portMappings: [{ containerPort: props.containerPort }],
       environment: {
-        // Add memory optimization for Java applications
-        JAVA_OPTS: '-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError'
+        // Add memory optimization for Java applications using ZGC
+        JAVA_OPTS: '-Xms512m -Xmx1536m -XX:+UseZGC -XX:+ZGenerational -XX:ConcGCThreads=2 -XX:ZCollectionInterval=5 -XX:+HeapDumpOnOutOfMemoryError'
       }
     });
 
