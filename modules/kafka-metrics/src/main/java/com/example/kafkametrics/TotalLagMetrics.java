@@ -68,17 +68,10 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
     
     @Scheduled(fixedRateString = "${management.cloudwatch.metrics.export.step}")
     public void refreshLag() {
-        // Don't calculate lag too frequently to avoid resource contention
-        try {
-            long lag = calculateTotalLag();
-            if (lag >= 0) { // Only update if calculation was successful
-                currentLag.set(lag);
-                log.debug("Updated current lag to: {}", lag);
-            }
-        } catch (OutOfMemoryError e) {
-            // Handle OOM more gracefully
-            log.error("Out of memory during lag calculation, skipping this cycle", e);
-            System.gc(); // Request garbage collection
+        long lag = calculateTotalLag();
+        if (lag >= 0) { // Only update if calculation was successful
+            currentLag.set(lag);
+            log.debug("Updated current lag to: {}", lag);
         }
     }
 
