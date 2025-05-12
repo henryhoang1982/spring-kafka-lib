@@ -2,25 +2,24 @@ package com.example.kafkametrics;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.binder.MeterBinder;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.context.ApplicationListener;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import lombok.extern.slf4j.Slf4j;
 
-import jakarta.annotation.PostConstruct;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -68,10 +67,17 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
     
     @Scheduled(fixedRateString = "${management.cloudwatch.metrics.export.step}")
     public void refreshLag() {
-        long lag = calculateTotalLag();
-        if (lag >= 0) { // Only update if calculation was successful
-            currentLag.set(lag);
-            log.debug("Updated current lag to: {}", lag);
+        // Don't calculate lag too frequently to avoid resource contention
+        try {
+            long lag = calculateTotalLag();
+            if (lag >= 0) { // Only update if calculation was successful
+                currentLag.set(lag);
+                log.debug("Updated current lag to: {}", lag);
+            }
+        } catch (OutOfMemoryError e) {
+            // Handle OOM more gracefully
+            log.error("Out of memory during lag calculation, skipping this cycle", e);
+            System.gc(); // Request garbage collection
         }
     }
 
@@ -79,10 +85,15 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
         try {
             log.debug("Starting lag calculation for consumer group: {}", consumerGroupId);
             
+            // Limit logging to reduce memory pressure
+            boolean verboseLogging = log.isTraceEnabled();
+            
             // List all consumer groups to verify our group exists
             var consumerGroups = adminClient.listConsumerGroups().all().get();
-            log.debug("Available consumer groups: {}", 
-                consumerGroups.stream().map(g -> g.groupId()).collect(Collectors.toList()));
+            if (verboseLogging) {
+                log.trace("Available consumer groups: {}", 
+                    consumerGroups.stream().map(g -> g.groupId()).collect(Collectors.toList()));
+            }
             
             // Get consumer offsets
             ListConsumerGroupOffsetsResult groupOffsetsResult = adminClient.listConsumerGroupOffsets(consumerGroupId);
@@ -93,47 +104,74 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
                 return 0;
             }
 
-            // Log all the topic partitions we're calculating lag for
-            log.debug("Found {} partition(s) with offsets for group {}: {}", 
-                    consumerOffsets.size(), 
-                    consumerGroupId,
-                    consumerOffsets.keySet().stream()
-                        .map(tp -> tp.topic() + "-" + tp.partition())
-                        .collect(Collectors.joining(", ")));
+            // Log all the topic partitions we're calculating lag for - only in trace mode
+            if (verboseLogging) {
+                log.trace("Found {} partition(s) with offsets for group {}: {}", 
+                        consumerOffsets.size(), 
+                        consumerGroupId,
+                        consumerOffsets.keySet().stream()
+                            .map(tp -> tp.topic() + "-" + tp.partition())
+                            .collect(Collectors.joining(", ")));
+            } else {
+                log.debug("Found {} partition(s) with offsets for group {}", 
+                        consumerOffsets.size(), consumerGroupId);
+            }
 
-            // Get end offsets for all partitions
-            Map<TopicPartition, Long> logEndOffsets = adminClient.listOffsets(
-                    consumerOffsets.keySet().stream()
-                        .collect(Collectors.toMap(tp -> tp, tp -> org.apache.kafka.clients.admin.OffsetSpec.latest()))
-            ).all().get().entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().offset()));
-            
-            // Calculate lag for each partition
+            // Get end offsets for all partitions - process in smaller batches if many partitions
+            final int BATCH_SIZE = 20; // Process offsets in batches to reduce memory pressure
             long totalLag = 0;
-            for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : consumerOffsets.entrySet()) {
-                TopicPartition tp = entry.getKey();
-                long currentOffset = entry.getValue().offset();
-                Long endOffset = logEndOffsets.get(tp);
-
-                if (endOffset != null) {
-                    long lag = Math.max(0, endOffset - currentOffset); // Lag can't be negative
-                    totalLag += lag;
-                    log.debug("Lag for partition {}-{}: {} (Current: {}, End: {})", 
-                               tp.topic(), tp.partition(), lag, currentOffset, endOffset);
-                } else {
-                    log.warn("No log end offset found for partition {}, skipping for lag calculation.", tp);
+            
+            // Break the offsets into batches if there are many partitions
+            List<Map.Entry<TopicPartition, OffsetAndMetadata>> entries = new ArrayList<>(consumerOffsets.entrySet());
+            for (int i = 0; i < entries.size(); i += BATCH_SIZE) {
+                int end = Math.min(i + BATCH_SIZE, entries.size());
+                List<Map.Entry<TopicPartition, OffsetAndMetadata>> batch = entries.subList(i, end);
+                
+                // Create a map of only the current batch of partitions
+                Map<TopicPartition, org.apache.kafka.clients.admin.OffsetSpec> offsetSpecMap = 
+                    batch.stream().collect(Collectors.toMap(
+                        Map.Entry::getKey, 
+                        tp -> org.apache.kafka.clients.admin.OffsetSpec.latest()
+                    ));
+                
+                // Get end offsets for the current batch
+                Map<TopicPartition, Long> logEndOffsets = adminClient.listOffsets(offsetSpecMap)
+                    .all().get().entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().offset()));
+                
+                // Process each partition in the batch
+                for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : batch) {
+                    TopicPartition tp = entry.getKey();
+                    long currentOffset = entry.getValue().offset();
+                    Long endOffset = logEndOffsets.get(tp);
+    
+                    if (endOffset != null) {
+                        long lag = Math.max(0, endOffset - currentOffset); // Lag can't be negative
+                        totalLag += lag;
+                        if (verboseLogging) {
+                            log.trace("Lag for partition {}-{}: {} (Current: {}, End: {})", 
+                                   tp.topic(), tp.partition(), lag, currentOffset, endOffset);
+                        }
+                    } else {
+                        log.warn("No log end offset found for partition {}, skipping for lag calculation.", tp);
+                    }
+                }
+                
+                // Force intermediary garbage collection if processing many partitions
+                if (entries.size() > BATCH_SIZE * 2 && i > 0 && i % (BATCH_SIZE * 5) == 0) {
+                    System.gc();
                 }
             }
+            
             log.debug("Calculated total lag for group {}: {}", consumerGroupId, totalLag);
             return totalLag;
-
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage());
             Thread.currentThread().interrupt(); // Restore interruption status
             return -1; // Indicate error
         } catch (Exception e) { // Catch any other unexpected exceptions
-             log.error("Unexpected error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage(), e);
-             return -1; // Indicate error
+            log.error("Unexpected error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage(), e);
+            return -1; // Indicate error
         }
     }
 } 

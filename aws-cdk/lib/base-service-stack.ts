@@ -48,6 +48,10 @@ export abstract class BaseServiceStack extends cdk.Stack {
       memoryLimitMiB: props.memoryLimitMiB,
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: props.serviceName }),
       portMappings: [{ containerPort: props.containerPort }],
+      environment: {
+        // Add memory optimization for Java applications
+        JAVA_OPTS: '-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError'
+      }
     });
 
     // Create ALB

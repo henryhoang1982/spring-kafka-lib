@@ -28,13 +28,22 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
+        # Memory optimizations
+        receive.buffer.bytes: 32768
+        send.buffer.bytes: 32768
+        # Reduce fetch size to limit memory usage
+        max.partition.fetch.bytes: 1048576
+        # Reduce cache size
+        buffer.memory: 33554432
         # Max records per poll
         max.poll.records: 5
-        # Auto-offset reset configuration (earliest to process all messages)
+        # Auto-offset reset configuration
         auto.offset.reset: earliest
     listener:
       # Listener type for batch consumption
       type: batch
+      # Control concurrency more explicitly
+      concurrency: 3
 
 # Configure logging
 logging:
@@ -56,3 +65,6 @@ metrics:
 app:
   kafka:
     topic: topic.x 
+
+# JVM optimization settings to be set as environment variables in ECS task definition
+# JAVA_OPTS: "-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp" 
