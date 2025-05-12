@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
@@ -172,6 +173,19 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
         } catch (Exception e) { // Catch any other unexpected exceptions
             log.error("Unexpected error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage(), e);
             return -1; // Indicate error
+        }
+    }
+
+    @PreDestroy
+    public void destroy() {
+        log.info("Closing Kafka AdminClient for consumer group: {}", consumerGroupId);
+        try {
+            if (adminClient != null) {
+                adminClient.close();
+                log.info("Successfully closed Kafka AdminClient");
+            }
+        } catch (Exception e) {
+            log.error("Error closing Kafka AdminClient", e);
         }
     }
 } 
