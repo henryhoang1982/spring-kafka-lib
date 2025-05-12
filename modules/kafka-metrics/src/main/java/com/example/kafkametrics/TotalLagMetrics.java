@@ -86,15 +86,10 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
         try {
             log.debug("Starting lag calculation for consumer group: {}", consumerGroupId);
             
-            // Limit logging to reduce memory pressure
-            boolean verboseLogging = log.isTraceEnabled();
-            
             // List all consumer groups to verify our group exists
             var consumerGroups = adminClient.listConsumerGroups().all().get();
-            if (verboseLogging) {
-                log.trace("Available consumer groups: {}", 
-                    consumerGroups.stream().map(g -> g.groupId()).collect(Collectors.toList()));
-            }
+            log.trace("Available consumer groups: {}", 
+                  consumerGroups.stream().map(g -> g.groupId()).collect(Collectors.toList()));
             
             // Get consumer offsets
             ListConsumerGroupOffsetsResult groupOffsetsResult = adminClient.listConsumerGroupOffsets(consumerGroupId);
@@ -105,8 +100,8 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
                 return 0;
             }
 
-            // Log all the topic partitions we're calculating lag for - only in trace mode
-            if (verboseLogging) {
+            // Log all the topic partitions we're calculating lag for
+            if (log.isTraceEnabled()) {
                 log.trace("Found {} partition(s) with offsets for group {}: {}", 
                         consumerOffsets.size(), 
                         consumerGroupId,
@@ -149,10 +144,8 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
                     if (endOffset != null) {
                         long lag = Math.max(0, endOffset - currentOffset); // Lag can't be negative
                         totalLag += lag;
-                        if (verboseLogging) {
-                            log.trace("Lag for partition {}-{}: {} (Current: {}, End: {})", 
-                                   tp.topic(), tp.partition(), lag, currentOffset, endOffset);
-                        }
+                        log.trace("Lag for partition {}-{}: {} (Current: {}, End: {})", 
+                               tp.topic(), tp.partition(), lag, currentOffset, endOffset);
                     } else {
                         log.warn("No log end offset found for partition {}, skipping for lag calculation.", tp);
                     }
