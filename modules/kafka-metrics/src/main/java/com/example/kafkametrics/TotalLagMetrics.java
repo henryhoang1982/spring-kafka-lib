@@ -16,6 +16,8 @@ import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.context.ApplicationListener;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 
 import jakarta.annotation.PostConstruct;
 import java.util.Collections;
@@ -28,7 +30,7 @@ import java.util.stream.Collectors;
 @Component
 @ConditionalOnProperty(name = "spring.kafka.consumer.group-id") // Only activate if group-id is set
 @EnableScheduling
-public class TotalLagMetrics implements MeterBinder {
+public class TotalLagMetrics implements MeterBinder, ApplicationListener<ApplicationReadyEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(TotalLagMetrics.class);
     private final AdminClient adminClient;
@@ -128,5 +130,10 @@ public class TotalLagMetrics implements MeterBinder {
              logger.error("Unexpected error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage(), e);
              return -1; // Indicate error
         }
+    }
+
+    @Override
+    public void onApplicationEvent(ApplicationReadyEvent event) {
+        logger.info("Application context is ready, TotalLagMetrics can now safely use properties");
     }
 } 
