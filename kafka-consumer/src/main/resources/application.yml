@@ -49,10 +49,9 @@ metrics:
   filter:
     allowed:
       - kafka.consumer.totalLag
-      # Uncomment lines below to add more metrics
-      # - jvm.memory.used
-      # - system.cpu.usage
-      # - kafka.*
+      - jvm.memory.used
+      - system.cpu.usage
+    # - kafka.*
     
 app:
   kafka:

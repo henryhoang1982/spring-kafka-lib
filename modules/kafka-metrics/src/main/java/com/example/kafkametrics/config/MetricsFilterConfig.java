@@ -3,30 +3,31 @@ package com.example.kafkametrics.config;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.config.MeterFilterReply;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Configuration
+@EnableConfigurationProperties(MetricsProperties.class)
 public class MetricsFilterConfig {
+    private final MetricsProperties metricsProperties;
 
-    // Default to only allowing kafka.consumer.totalLag if no configuration provided
-    @Value("${metrics.filter.allowed:}")
-    private List<String> allowedMetricsList;
+    public MetricsFilterConfig(MetricsProperties metricsProperties) {
+        this.metricsProperties = metricsProperties;
+        log.info("Initialized MetricsFilterConfig with properties: {}", metricsProperties.getAllowed());
+    }
 
     @Bean
     public MeterFilter meterFilter() {
+        log.info("Creating meter filter with allowed metrics: {}", metricsProperties.getAllowed());
+        
         // Convert to a Set for faster lookups
-        Set<String> allowedMetrics = new HashSet<>(
-                allowedMetricsList.isEmpty() ? 
-                Collections.singletonList("kafka.consumer.totalLag") : 
-                allowedMetricsList
-        );
+        Set<String> allowedMetrics = new HashSet<>(metricsProperties.getAllowed());
         
         return new MeterFilter() {
             @Override

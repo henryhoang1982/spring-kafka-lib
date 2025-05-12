@@ -11,6 +11,9 @@ dependencies {
     // org.springframework.kafka:spring-kafka is inherited from the root project
     api 'org.springframework.boot:spring-boot-starter-actuator'
     api 'io.micrometer:micrometer-registry-cloudwatch2'
+    
+    // Add configuration processor for @ConfigurationProperties
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 }
 
 // This module is a library, not a runnable Spring Boot application.

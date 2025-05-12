@@ -8,8 +8,6 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaAdmin;
@@ -18,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.context.ApplicationListener;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import lombok.extern.slf4j.Slf4j;
 
 import jakarta.annotation.PostConstruct;
 import java.util.Collections;
@@ -27,13 +26,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @ConditionalOnProperty(name = "spring.kafka.consumer.group-id") // Only activate if group-id is set
 @EnableScheduling
 public class TotalLagMetrics implements MeterBinder, ApplicationListener<ApplicationReadyEvent> {
 
-    private static final Logger logger = LoggerFactory.getLogger(TotalLagMetrics.class);
     private final AdminClient adminClient;
+    private MeterRegistry meterRegistry;
     
     @Value("${spring.kafka.consumer.group-id}")
     private String consumerGroupId;
@@ -46,7 +46,12 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
 
     @PostConstruct
     public void init() {
-        logger.info("Initialized TotalLagMetrics for consumer group: {}", consumerGroupId);
+        log.info("Initialized TotalLagMetrics for consumer group: {}", consumerGroupId);
+    }
+
+    @Override
+    public void onApplicationEvent(ApplicationReadyEvent event) {
+        log.info("Application context is ready, TotalLagMetrics can now safely use properties");
     }
 
     @Override
@@ -55,7 +60,7 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
                 .description("Approximate total lag for the consumer group")
                 .tag("consumerGroupId", consumerGroupId)
                 .register(registry);
-        logger.info("Registered kafka.consumer.totalLag gauge for group: {}", consumerGroupId);
+        log.info("Registered kafka.consumer.totalLag gauge for group: {}", consumerGroupId);
         
         // Initial calculation
         refreshLag();
@@ -66,17 +71,17 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
         long lag = calculateTotalLag();
         if (lag >= 0) { // Only update if calculation was successful
             currentLag.set(lag);
-            logger.debug("Updated current lag to: {}", lag);
+            log.debug("Updated current lag to: {}", lag);
         }
     }
 
     private long calculateTotalLag() {
         try {
-            logger.debug("Starting lag calculation for consumer group: {}", consumerGroupId);
+            log.debug("Starting lag calculation for consumer group: {}", consumerGroupId);
             
             // List all consumer groups to verify our group exists
             var consumerGroups = adminClient.listConsumerGroups().all().get();
-            logger.debug("Available consumer groups: {}", 
+            log.debug("Available consumer groups: {}", 
                 consumerGroups.stream().map(g -> g.groupId()).collect(Collectors.toList()));
             
             // Get consumer offsets
@@ -84,12 +89,12 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
             Map<TopicPartition, OffsetAndMetadata> consumerOffsets = groupOffsetsResult.partitionsToOffsetAndMetadata().get();
 
             if (consumerOffsets.isEmpty()) {
-                logger.debug("No offsets found for consumer group: {}. Group may not have consumed any messages yet.", consumerGroupId);
+                log.debug("No offsets found for consumer group: {}. Group may not have consumed any messages yet.", consumerGroupId);
                 return 0;
             }
 
             // Log all the topic partitions we're calculating lag for
-            logger.debug("Found {} partition(s) with offsets for group {}: {}", 
+            log.debug("Found {} partition(s) with offsets for group {}: {}", 
                     consumerOffsets.size(), 
                     consumerGroupId,
                     consumerOffsets.keySet().stream()
@@ -113,27 +118,22 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
                 if (endOffset != null) {
                     long lag = Math.max(0, endOffset - currentOffset); // Lag can't be negative
                     totalLag += lag;
-                    logger.debug("Lag for partition {}-{}: {} (Current: {}, End: {})", 
+                    log.debug("Lag for partition {}-{}: {} (Current: {}, End: {})", 
                                tp.topic(), tp.partition(), lag, currentOffset, endOffset);
                 } else {
-                    logger.warn("No log end offset found for partition {}, skipping for lag calculation.", tp);
+                    log.warn("No log end offset found for partition {}, skipping for lag calculation.", tp);
                 }
             }
-            logger.debug("Calculated total lag for group {}: {}", consumerGroupId, totalLag);
+            log.debug("Calculated total lag for group {}: {}", consumerGroupId, totalLag);
             return totalLag;
 
         } catch (InterruptedException | ExecutionException e) {
-            logger.error("Error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage());
+            log.error("Error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage());
             Thread.currentThread().interrupt(); // Restore interruption status
             return -1; // Indicate error
         } catch (Exception e) { // Catch any other unexpected exceptions
-             logger.error("Unexpected error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage(), e);
+             log.error("Unexpected error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage(), e);
              return -1; // Indicate error
         }
-    }
-
-    @Override
-    public void onApplicationEvent(ApplicationReadyEvent event) {
-        logger.info("Application context is ready, TotalLagMetrics can now safely use properties");
     }
 } 
