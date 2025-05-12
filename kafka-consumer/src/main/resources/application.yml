@@ -12,6 +12,11 @@ management:
     export:
       prometheus:
         enabled: true
+  cloudwatch:
+    metrics:
+      export:
+        namespace: KafkaConsumer  # CloudWatch namespace for metrics
+        step: 5000  # Metrics collection interval (5 seconds)
 
 spring:
   application:
@@ -41,7 +46,6 @@ logging:
 # List of metrics to expose, all others will be filtered out
 # You can use 'name.*' patterns to include a group of metrics
 metrics:
-  updateIntervalMs: 5000
   filter:
     allowed:
       - kafka.consumer.totalLag

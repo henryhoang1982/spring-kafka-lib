@@ -19,9 +19,6 @@ public class MetricsFilterConfig {
     @Value("${metrics.filter.allowed:}")
     private List<String> allowedMetricsList;
 
-    @Value("${metrics.updateIntervalMs:5000}")
-    public long refreshIntervalMs;
-
     @Bean
     public MeterFilter meterFilter() {
         // Convert to a Set for faster lookups
