@@ -12,11 +12,13 @@ management:
     export:
       prometheus:
         enabled: true
-  cloudwatch:
-    metrics:
-      export:
-        namespace: KafkaConsumer  # CloudWatch namespace for metrics
-        step: 5000  # Metrics collection interval (5 seconds)
+      cloudwatch:
+        enabled: true
+        namespace: KafkaConsumer
+        step: 5000  # Increase to 1 minute to reduce memory pressure
+        batch-size: 10  # Reduce batch size from default 20
+        buffer-capacity: 200  # Reduce buffer capacity from default
+        max-roll-forward-seconds: 120  # Memory safety for catch-up after delays
 
 spring:
   application:
