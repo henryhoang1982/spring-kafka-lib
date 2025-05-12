@@ -17,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,17 +32,23 @@ public class TotalLagMetrics implements MeterBinder {
 
     private static final Logger logger = LoggerFactory.getLogger(TotalLagMetrics.class);
     private final AdminClient adminClient;
-    private final String consumerGroupId;
-    private final String cloudwatchNamespace;
+    
+    @Value("${spring.kafka.consumer.group-id}")
+    private String consumerGroupId;
+    
+    @Value("${management.cloudwatch.metrics.export.namespace}")
+    private String cloudwatchNamespace;
+    
     private final AtomicLong currentLag = new AtomicLong(0);
 
-    public TotalLagMetrics(KafkaAdmin kafkaAdmin, 
-                          @Value("${spring.kafka.consumer.group-id}") String consumerGroupId,
-                          @Value("${management.cloudwatch.metrics.export.namespace}") String cloudwatchNamespace) {
+    public TotalLagMetrics(KafkaAdmin kafkaAdmin) {
         this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
-        this.consumerGroupId = consumerGroupId;
-        this.cloudwatchNamespace = cloudwatchNamespace;
-        logger.info("Initialized TotalLagMetrics for consumer group: {}", consumerGroupId);
+    }
+
+    @PostConstruct
+    public void init() {
+        logger.info("Initialized TotalLagMetrics for consumer group: {} with CloudWatch namespace: {}", 
+                   consumerGroupId, cloudwatchNamespace);
     }
 
     @Override
