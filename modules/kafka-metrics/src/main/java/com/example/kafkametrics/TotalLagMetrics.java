@@ -36,9 +36,6 @@ public class TotalLagMetrics implements MeterBinder {
     @Value("${spring.kafka.consumer.group-id}")
     private String consumerGroupId;
     
-    @Value("${management.cloudwatch.metrics.export.namespace}")
-    private String cloudwatchNamespace;
-    
     private final AtomicLong currentLag = new AtomicLong(0);
 
     public TotalLagMetrics(KafkaAdmin kafkaAdmin) {
@@ -47,8 +44,7 @@ public class TotalLagMetrics implements MeterBinder {
 
     @PostConstruct
     public void init() {
-        logger.info("Initialized TotalLagMetrics for consumer group: {} with CloudWatch namespace: {}", 
-                   consumerGroupId, cloudwatchNamespace);
+        logger.info("Initialized TotalLagMetrics for consumer group: {}", consumerGroupId);
     }
 
     @Override
@@ -56,7 +52,6 @@ public class TotalLagMetrics implements MeterBinder {
         Gauge.builder("kafka.consumer.totalLag", currentLag, AtomicLong::get)
                 .description("Approximate total lag for the consumer group")
                 .tag("consumerGroupId", consumerGroupId)
-                .tag("aws.namespace", cloudwatchNamespace)
                 .register(registry);
         logger.info("Registered kafka.consumer.totalLag gauge for group: {}", consumerGroupId);
         

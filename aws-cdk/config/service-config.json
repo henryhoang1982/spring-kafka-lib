@@ -1,0 +1,51 @@
+{
+  "cluster": {
+    "name": "kafka-services-cluster"
+  },
+  "vpc": {
+    "maxAzs": 2
+  },
+  "producer": {
+    "serviceName": "kafka-producer",
+    "containerPort": 8080,
+    "cpu": 256,
+    "memoryLimitMiB": 512,
+    "desiredCount": 1,
+    "minCapacity": 1,
+    "maxCapacity": 3,
+    "healthCheckPath": "/actuator/health"
+  },
+  "consumer": {
+    "serviceName": "kafka-consumer",
+    "containerPort": 8081,
+    "cpu": 256,
+    "memoryLimitMiB": 512,
+    "desiredCount": 1,
+    "minCapacity": 1,
+    "maxCapacity": 3,
+    "healthCheckPath": "/actuator/health",
+    "scaling": {
+      "metric": "kafka.consumer.totalLag",
+      "namespace": "KafkaConsumer",
+      "dimensions": {
+        "consumerGroupId": "my-group"
+      },
+      "steps": [
+        {
+          "lower": 0,
+          "upper": 1000,
+          "capacity": 1
+        },
+        {
+          "lower": 1000,
+          "upper": 5000,
+          "capacity": 2
+        },
+        {
+          "lower": 5000,
+          "capacity": 3
+        }
+      ]
+    }
+  }
+} 
