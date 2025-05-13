@@ -18,7 +18,7 @@ management:
       cloudwatch:
         enabled: true
         namespace: KafkaConsumer
-        step: 5000  # Increase to 1 minute to reduce memory pressure
+        step: 5000  # Increase to 1 minute to reduce CPU/memory pressure
         batch-size: 10  # Reduce batch size from default 20
         buffer-capacity: 200  # Reduce buffer capacity from default
         max-roll-forward-seconds: 120  # Memory safety for catch-up after delays
