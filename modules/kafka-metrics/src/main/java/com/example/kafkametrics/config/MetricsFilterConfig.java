@@ -1,26 +1,25 @@
 package com.example.kafkametrics.config;
 
-import io.micrometer.cloudwatch2.CloudWatchConfig;
-import io.micrometer.cloudwatch2.CloudWatchMeterRegistry;
-import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Meter;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.config.MeterFilterReply;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.services.cloudwatch.CloudWatchAsyncClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaAdmin;
+import com.example.kafkametrics.TotalLagMetrics;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
-import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 
 @Slf4j
 @Configuration
 @EnableConfigurationProperties(MetricsProperties.class)
+@EnableScheduling
 public class MetricsFilterConfig {
     private final MetricsProperties metricsProperties;
 
@@ -58,57 +57,11 @@ public class MetricsFilterConfig {
             }
         };
     }
-    
-    // CloudWatch Configuration Section
-    @Configuration
-    @ConditionalOnProperty(value = "kafka.metrics.cloudwatch.enabled", havingValue = "true", matchIfMissing = false)
-    public static class CloudWatchConfiguration {
-        
-        @Bean
-        public CloudWatchAsyncClient cloudWatchAsyncClient() {
-            log.info("Creating CloudWatchAsyncClient");
-            return CloudWatchAsyncClient.create();
-        }
-        
-        @Bean
-        public CloudWatchConfig cloudWatchConfig() {
-            return new CloudWatchConfig() {
-                @Override
-                public String get(String key) {
-                    return null; // Accept defaults for properties not explicitly set
-                }
-                
-                @Override
-                public String namespace() {
-                    return "KafkaMetrics"; // Custom namespace for the metrics
-                }
-                
-                @Override
-                public Duration step() {
-                    return Duration.ofSeconds(60); // 1 minute reporting interval
-                }
-                
-                @Override
-                public boolean enabled() {
-                    return true;
-                }
-                
-                @Override
-                public int batchSize() {
-                    return 10; // Reduced batch size to control memory usage
-                }
-            };
-        }
-        
-        @Bean
-        public MeterRegistry cloudWatchMeterRegistry(CloudWatchConfig config, CloudWatchAsyncClient client) {
-            log.info("Creating CloudWatch meter registry with namespace: {}", config.namespace());
-            CloudWatchMeterRegistry registry = new CloudWatchMeterRegistry(config, Clock.SYSTEM, client);
-            
-            // Add common tags
-            registry.config().commonTags("module", "kafka-metrics");
-            
-            return registry;
-        }
+
+    @Bean
+    @ConditionalOnProperty(name = "spring.kafka.consumer.group-id") // Only activate if group-id is set
+    public TotalLagMetrics totalLagMetrics(KafkaAdmin kafkaAdmin, @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
+        log.info("Creating TotalLagMetrics bean for consumer group: {}", consumerGroupId);
+        return new TotalLagMetrics(kafkaAdmin, consumerGroupId);
     }
 } 

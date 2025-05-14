@@ -1,23 +1,21 @@
 package com.example.kafkametrics;
 
+import io.micrometer.common.lang.NonNullApi;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.kafka.core.KafkaAdmin;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,25 +25,20 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Component
-@ConditionalOnProperty(name = "spring.kafka.consumer.group-id") // Only activate if group-id is set
-@EnableScheduling
+@NonNullApi
+@RequiredArgsConstructor
 public class TotalLagMetrics implements MeterBinder, ApplicationListener<ApplicationReadyEvent> {
 
-    private final AdminClient adminClient;
+    private final KafkaAdmin kafkaAdmin;
+    private final String consumerGroupId;
+    
+    private AdminClient adminClient;
     private MeterRegistry meterRegistry;
-    
-    @Value("${spring.kafka.consumer.group-id}")
-    private String consumerGroupId;
-    
     private final AtomicLong currentLag = new AtomicLong(0);
-
-    public TotalLagMetrics(KafkaAdmin kafkaAdmin) {
-        this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
-    }
 
     @PostConstruct
     public void init() {
+        this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
         log.info("Initialized TotalLagMetrics for consumer group: {}", consumerGroupId);
     }
 
@@ -55,11 +48,11 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
     }
 
     @Override
-    public void bindTo(MeterRegistry registry) {
+    public void bindTo(MeterRegistry cloudWatchMeterRegistry) {
         Gauge.builder("kafka.consumer.totalLag", currentLag, AtomicLong::get)
                 .description("Approximate total lag for the consumer group")
                 .tag("consumerGroupId", consumerGroupId)
-                .register(registry);
+                .register(cloudWatchMeterRegistry);
         log.info("Registered kafka.consumer.totalLag gauge for group: {}", consumerGroupId);
         
         // Initial calculation
