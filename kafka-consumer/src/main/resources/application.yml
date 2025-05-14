@@ -50,6 +50,9 @@ spring:
       concurrency: 3
   jmx:
     enabled: false
+  autoconfigure:
+    exclude:
+      - io.awspring.cloud.autoconfigure.metrics.CloudWatchExportAutoConfiguration
 
 # Configure logging
 logging:
