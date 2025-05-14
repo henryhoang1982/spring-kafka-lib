@@ -8,6 +8,7 @@ plugins {
 
 dependencies {
     api 'io.micrometer:micrometer-registry-cloudwatch2'
+    api 'software.amazon.awssdk:cloudwatch'
     
     // Add configuration processor for @ConfigurationProperties
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

@@ -13,12 +13,7 @@ management:
       prometheus:
         enabled: true
       cloudwatch:
-        enabled: true
-        namespace: KafkaConsumer
-        step: 5000  # Increase to 1 minute to reduce CPU/memory pressure
-        batch-size: 10  # Reduce batch size from default 20
-        buffer-capacity: 200  # Reduce buffer capacity from default
-        max-roll-forward-seconds: 120  # Memory safety for catch-up after delays
+        enabled: false  # Disable Spring Boot's built-in CloudWatch exporter
   jmx:
     enabled: false
 
@@ -77,3 +72,12 @@ app:
 
 # JVM optimization settings to be set as environment variables in ECS task definition
 # JAVA_OPTS: "-Xms512m -Xmx1536m -XX:+UseZGC -XX:+ZGenerational -XX:ConcGCThreads=2 -XX:ZCollectionInterval=5 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp" 
+
+# Configure kafka-metrics module
+kafka:
+  metrics:
+    cloudwatch:
+      enabled: true  # Enable our custom CloudWatch configuration
+      namespace: KafkaMetrics  # Default namespace when enabled
+      step: 60s  # 1 minute reporting interval
+      batch-size: 10  # Reduced batch size for memory optimization 
