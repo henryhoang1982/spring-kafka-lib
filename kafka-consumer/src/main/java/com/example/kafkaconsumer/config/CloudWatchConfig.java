@@ -18,34 +18,12 @@ public class CloudWatchConfig {
      */
     @Bean
     public MeterRegistryCustomizer<MeterRegistry> cloudWatchMeterRegistryCustomizer() {
-        log.info("Configuring CloudWatch MeterRegistry with CPU/memory optimizations");
+        log.info("Configuring CloudWatch MeterRegistry with tags");
         
         return registry -> {
-            // 1. Add common tags
+            // Add common tags for CloudWatch metrics
             registry.config().commonTags("service", "kafka-consumer");
-            
-            // 2. Filter out non-essential metrics to reduce volume
-            registry.config().meterFilter(MeterFilter.denyUnless(id -> {
-                String name = id.getName();
-                
-                // Only allow essential metrics
-                return name.equals("kafka.consumer.totalLag") ||
-                       name.startsWith("jvm.memory") ||
-                       name.startsWith("system.cpu") ||
-                       name.startsWith("kafka.consumer.bytes-consumed") ||
-                       name.equals("system.load.average.1m");
-            }));
-            
-            // 3. Limit high cardinality metrics like timers
-            registry.config().meterFilter(MeterFilter.deny(id -> {
-                String name = id.getName();
-                // Exclude metrics that generate many time series
-                return name.contains("hystrix") || 
-                       name.startsWith("tomcat.") ||
-                       name.contains("percentile");
-            }));
-            
-            log.info("CloudWatch MeterRegistry configured with optimizations");
+            log.info("CloudWatch MeterRegistry configured with tags");
         };
     }
 } 
