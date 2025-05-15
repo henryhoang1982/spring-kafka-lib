@@ -100,7 +100,7 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
             }
 
             // Get end offsets for all partitions - process in smaller batches if many partitions
-            final int BATCH_SIZE = 20; // Process offsets in batches to reduce memory pressure
+            final int BATCH_SIZE = 10; // Reduce batch size to 10 (from 20) to further reduce memory pressure
             long totalLag = 0;
             
             // Break the offsets into batches if there are many partitions
@@ -137,9 +137,19 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
                     }
                 }
                 
-                // Force intermediary garbage collection if processing many partitions
-                if (entries.size() > BATCH_SIZE * 2 && i > 0 && i % (BATCH_SIZE * 5) == 0) {
+                // Clear batch variables to release memory
+                offsetSpecMap.clear();
+                logEndOffsets.clear();
+                
+                // Force garbage collection more frequently
+                if (entries.size() > BATCH_SIZE && i > 0 && i % (BATCH_SIZE * 2) == 0) {
                     System.gc();
+                }
+                
+                // Refresh admin client for very large partition sets (helps with SSL connections)
+                if (entries.size() > BATCH_SIZE * 5 && i > 0 && i % (BATCH_SIZE * 5) == 0) {
+                    refreshAdminClient();
+                    log.debug("AdminClient refreshed after processing {} of {} partitions", i, entries.size());
                 }
             }
             
@@ -147,10 +157,14 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
             return totalLag;
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage());
+            // Try to refresh AdminClient on error
+            refreshAdminClient();
             Thread.currentThread().interrupt(); // Restore interruption status
             return -1; // Indicate error
         } catch (Exception e) { // Catch any other unexpected exceptions
             log.error("Unexpected error calculating total lag for consumer group {}: {}", consumerGroupId, e.getMessage(), e);
+            // Try to refresh AdminClient on error
+            refreshAdminClient();
             return -1; // Indicate error
         }
     }
@@ -166,5 +180,25 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
         } catch (Exception e) {
             log.error("Error closing Kafka AdminClient", e);
         }
+    }
+
+    // Add method to force cleanup of resources when needed
+    private void refreshAdminClient() {
+        log.debug("Refreshing Kafka AdminClient to free resources");
+        
+        // Close existing client if available
+        if (this.adminClient != null) {
+            try {
+                this.adminClient.close();
+                log.debug("Closed existing AdminClient");
+            } catch (Exception e) {
+                log.warn("Error closing existing AdminClient: {}", e.getMessage());
+            }
+        }
+        
+        // Create a new client
+        this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
+        // Force garbage collection to clean up resources
+        System.gc();
     }
 } 
