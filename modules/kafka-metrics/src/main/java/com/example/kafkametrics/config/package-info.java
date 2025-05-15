@@ -5,5 +5,6 @@
  * - KafkaConfig: Provides KafkaAdmin bean with optimizations for SSL/PLAINTEXT protocols
  * - MetricsFilterConfig: Configures which metrics are exposed and creates TotalLagMetrics
  * - MetricsProperties: Configuration properties for metrics filtering
+ * - TotalLagMetric: MeterBinder implementation that registers the kafka.consumer.totalLag metric
  */
 package com.example.kafkametrics.config; 

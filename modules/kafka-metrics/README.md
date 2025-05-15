@@ -11,12 +11,18 @@ The module provides an optimized `KafkaAdmin` bean that automatically detects wh
 - For SSL environments (typically production), it applies memory and connection optimizations to prevent OutOfMemory issues
 - For PLAINTEXT environments (typically local development), it uses minimal configuration
 
-### TotalLagMetrics
+### TotalLagMetric
 
-Monitors consumer lag for Kafka topics by:
-- Tracking the difference between current consumer offsets and log end offsets
-- Exposing metrics through Micrometer/Prometheus
+A `MeterBinder` implementation that registers the `kafka.consumer.totalLag` metric, which tracks consumer lag. It follows the Single Responsibility Principle by doing only one thing - registering the metric.
+
+### KafkaLagService
+
+Provides the core functionality for:
+- Calculating consumer lag by tracking the difference between current consumer offsets and log end offsets
+- Maintaining the current lag value in memory
+- Scheduling regular lag calculation updates
 - Using batch processing to prevent memory issues with large topics
+- Managing Kafka AdminClient resources efficiently
 
 ### Metrics Filtering
 
@@ -43,4 +49,13 @@ spring:
   kafka:
     consumer:
       group-id: your-consumer-group
-``` 
+```
+
+## Architecture
+
+The module follows a clean separation of concerns:
+
+1. `TotalLagMetric` - Purely registers the metric with Micrometer and defines the LagValueSupplier interface
+2. `KafkaLagService` - Implements LagValueSupplier and handles all the lag calculation business logic and scheduling
+3. `KafkaConfig` - Provides optimized Kafka client configuration
+4. `MetricsFilterConfig` - Controls which metrics are exposed 

@@ -1,22 +1,18 @@
-package com.example.kafkametrics;
+package com.example.kafkametrics.service;
 
-import io.micrometer.common.lang.NonNullApi;
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.binder.MeterBinder;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
+import com.example.kafkametrics.config.TotalLagMetric.LagValueSupplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.ApplicationListener;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,41 +21,30 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Slf4j
-@NonNullApi
+@Service
 @RequiredArgsConstructor
-public class TotalLagMetrics implements MeterBinder, ApplicationListener<ApplicationReadyEvent> {
-
+public class KafkaLagService implements LagValueSupplier {
     private final KafkaAdmin kafkaAdmin;
     private final String consumerGroupId;
     
     private AdminClient adminClient;
-    private MeterRegistry meterRegistry;
     private final AtomicLong currentLag = new AtomicLong(0);
 
     @PostConstruct
     public void init() {
         this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
-        log.info("Initialized TotalLagMetrics for consumer group: {}", consumerGroupId);
-    }
-
-    @Override
-    public void onApplicationEvent(ApplicationReadyEvent event) {
-        log.info("Application context is ready, TotalLagMetrics can now safely use properties");
-    }
-
-    @Override
-    public void bindTo(MeterRegistry cloudWatchMeterRegistry) {
-        Gauge.builder("kafka.consumer.totalLag", currentLag, AtomicLong::get)
-                .description("Approximate total lag for the consumer group")
-                .tag("consumerGroupId", consumerGroupId)
-                .register(cloudWatchMeterRegistry);
-        log.info("Registered kafka.consumer.totalLag gauge for group: {}", consumerGroupId);
+        log.info("Initialized KafkaLagService for consumer group: {}", consumerGroupId);
         
         // Initial calculation
         refreshLag();
     }
     
-    @Scheduled(fixedRateString = "${management.metrics.export.cloudwatch.step}")
+    @Override
+    public long getLag() {
+        return currentLag.get();
+    }
+    
+    @Scheduled(fixedRateString = "${management.metrics.export.cloudwatch.step:60000}")
     public void refreshLag() {
         long lag = calculateTotalLag();
         if (lag >= 0) { // Only update if calculation was successful
@@ -67,8 +52,8 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
             log.debug("Updated current lag to: {}", lag);
         }
     }
-
-    private long calculateTotalLag() {
+    
+    public long calculateTotalLag() {
         try {
             log.debug("Starting lag calculation for consumer group: {}", consumerGroupId);
             
@@ -100,7 +85,7 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
             }
 
             // Get end offsets for all partitions - process in smaller batches if many partitions
-            final int BATCH_SIZE = 10; // Reduce batch size to 10 (from 20) to further reduce memory pressure
+            final int BATCH_SIZE = 10; // Reduced batch size to limit memory pressure
             long totalLag = 0;
             
             // Break the offsets into batches if there are many partitions
@@ -168,21 +153,8 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
             return -1; // Indicate error
         }
     }
-
-    @PreDestroy
-    public void destroy() {
-        log.info("Closing Kafka AdminClient for consumer group: {}", consumerGroupId);
-        try {
-            if (adminClient != null) {
-                adminClient.close();
-                log.info("Successfully closed Kafka AdminClient");
-            }
-        } catch (Exception e) {
-            log.error("Error closing Kafka AdminClient", e);
-        }
-    }
-
-    // Add method to force cleanup of resources when needed
+    
+    // Method to force cleanup of resources when needed
     private void refreshAdminClient() {
         log.debug("Refreshing Kafka AdminClient to free resources");
         
@@ -200,5 +172,18 @@ public class TotalLagMetrics implements MeterBinder, ApplicationListener<Applica
         this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
         // Force garbage collection to clean up resources
         System.gc();
+    }
+
+    @PreDestroy
+    public void destroy() {
+        log.info("Closing Kafka AdminClient for consumer group: {}", consumerGroupId);
+        try {
+            if (adminClient != null) {
+                adminClient.close();
+                log.info("Successfully closed Kafka AdminClient");
+            }
+        } catch (Exception e) {
+            log.error("Error closing Kafka AdminClient", e);
+        }
     }
 } 
