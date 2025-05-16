@@ -60,7 +60,8 @@ public class MetricsFilterConfig {
 
     @Bean
     @ConditionalOnProperty(name = "spring.kafka.consumer.group-id") // Only activate if group-id is set
-    public TotalLagMetric totalLagMetric(LagValueSupplier lagValueSupplier, @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
+    public TotalLagMetric totalLagMetric(LagValueSupplier lagValueSupplier,
+                                         @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
         String serviceType = lagValueSupplier instanceof JmxMetricsCollector ? "JMX" : "AdminClient";
         log.info("Creating TotalLagMetric bean for consumer group: {} using {} metrics", consumerGroupId, serviceType);
         return new TotalLagMetric(consumerGroupId, lagValueSupplier);

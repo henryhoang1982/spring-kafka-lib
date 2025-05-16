@@ -224,7 +224,7 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
     /**
      * Refresh lag metrics every minute (or as configured in application.yml)
      */
-    @Scheduled(fixedRateString = "${management.metrics.export.cloudwatch.step:60000}")
+    @Scheduled(fixedRateString = "${kafka.metrics.cloudwatch.step:60s}")
     public void refreshLag() {
         if (!initialized.get()) {
             log.info("JMX metrics collector not yet initialized, skipping lag refresh");
@@ -236,84 +236,49 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
     
     private void collectMaxLag() {
         if (mbeanServer == null) {
-            log.warn("MBeanServer not initialized yet, cannot collect lag metrics");
+            log.warn("MBeanServer not initialized yet, please enable it in app configuration");
             return;
         }
 
         try {
             // Patterns to look for, from most specific to most generic
-            String[] attributeNames = {
-                "records-lag-max",      // Standard Kafka consumer metric
-                "maxLag",              // Alternative name sometimes used
-                "recordsLagMax"        // Camel case variant
-            };
+            String attrName = "records-lag";
             
             // Patterns to match different JMX object name formats
-            String[] objectNamePatterns = {
-                // Most specific patterns first
-                "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*,topic=*",
-                "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*",
-                "org.apache.kafka.clients.consumer:type=consumer-fetch-manager-metrics,client-id=*",
-                "kafka.consumer:*",
-                "org.apache.kafka:*,type=*,client-id=consumer*",
-                "*:type=consumer-fetch-manager-metrics,*",
-                "*:client-id=consumer*,*"
-            };
-            
-            boolean found = false;
-            
-            // Try each object name pattern
-            for (String pattern : objectNamePatterns) {
-                ObjectName objNamePattern = new ObjectName(pattern);
-                Set<ObjectName> beans = mbeanServer.queryNames(objNamePattern, null);
-                
-                if (beans.isEmpty()) {
-                    log.debug("No JMX beans found matching pattern: {}", pattern);
-                    continue;
-                }
-                
-                log.debug("Found {} JMX beans matching pattern: {}", beans.size(), pattern);
-                
-                // For each matching bean, try each attribute name
-                for (ObjectName bean : beans) {
-                    for (String attrName : attributeNames) {
-                        try {
-                            Object value = mbeanServer.getAttribute(bean, attrName);
-                            if (value instanceof Number) {
-                                long lagValue = ((Number) value).longValue();
-                                log.debug("Found lag metric: {} = {} in {}", attrName, lagValue, bean);
-                                currentLag.set(lagValue);
-                                found = true;
-                                break;
-                            }
-                        } catch (AttributeNotFoundException e) {
-                            // This is expected for beans that don't have this attribute
-                            log.trace("Attribute {} not found in bean {}", attrName, bean);
-                        } catch (Exception e) {
-                            log.debug("Error reading attribute {} from bean {}: {}", 
-                                    attrName, bean, e.getMessage());
-                        }
+            String objectNamePatterns = "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*,topic=*,partition=*";
+
+            ObjectName objNamePattern = new ObjectName(objectNamePatterns);
+            Set<ObjectName> beans = mbeanServer.queryNames(objNamePattern, null);
+
+            if (beans.isEmpty()) {
+                log.debug("No JMX beans found matching pattern: {}", objectNamePatterns);
+            }
+
+            log.debug("Found {} JMX beans matching pattern: {}", beans.size(), objectNamePatterns);
+
+            // For each matching bean, try each attribute name
+            long totalLag = 0;
+            for (ObjectName bean : beans) {
+                try {
+                    Object value = mbeanServer.getAttribute(bean, attrName);
+                    if (value instanceof Number) {
+                        long lagValue = ((Number) value).longValue();
+                        log.debug("Found lag metric: {} = {} in {}", attrName, lagValue, bean);
+                        totalLag += lagValue;
                     }
-                    
-                    if (found) break;
+                } catch (AttributeNotFoundException e) {
+                    // This is expected for beans that don't have this attribute
+                    log.trace("Attribute {} not found in bean {}", attrName, bean);
+                } catch (Exception e) {
+                    log.error("Error reading attribute {} from bean {}: {}",
+                            attrName, bean, e.getMessage());
                 }
-                
-                if (found) break;
             }
-            
-            if (!found) {
-                log.warn("Could not find any valid lag metrics in JMX. Using previously stored value: {}", 
-                        currentLag.get());
-            }
+            currentLag.set(totalLag);
             
         } catch (Exception e) {
             log.error("Error collecting lag metrics from JMX: {}", e.getMessage(), e);
         }
-    }
-
-    @Override
-    public boolean isAutoStartup() {
-        return true;
     }
 
     @Override

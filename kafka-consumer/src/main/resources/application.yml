@@ -78,5 +78,5 @@ kafka:
     cloudwatch:
       enabled: true  # Enable our custom CloudWatch configuration
       namespace: KafkaMetrics  # Default namespace when enabled
-      step: 60s  # 1 minute reporting interval
+      step: 15000 # 1 minute reporting interval
       batch-size: 10  # Reduced batch size for memory optimization 
