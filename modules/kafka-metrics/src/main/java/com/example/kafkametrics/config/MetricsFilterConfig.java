@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaAdmin;
+import com.example.kafkametrics.service.JmxMetricsCollector;
 import com.example.kafkametrics.service.KafkaLagService;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -60,15 +61,8 @@ public class MetricsFilterConfig {
 
     @Bean
     @ConditionalOnProperty(name = "spring.kafka.consumer.group-id") // Only activate if group-id is set
-    public KafkaLagService kafkaLagService(KafkaAdmin kafkaAdmin, @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
-        log.info("Creating KafkaLagService bean for consumer group: {}", consumerGroupId);
-        return new KafkaLagService(kafkaAdmin, consumerGroupId);
-    }
-
-    @Bean
-    @ConditionalOnProperty(name = "spring.kafka.consumer.group-id") // Only activate if group-id is set
-    public TotalLagMetric totalLagMetric(KafkaLagService kafkaLagService, @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
+    public TotalLagMetric totalLagMetric(JmxMetricsCollector jmxMetricsCollector, @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
         log.info("Creating TotalLagMetric bean for consumer group: {}", consumerGroupId);
-        return new TotalLagMetric(consumerGroupId, kafkaLagService);
+        return new TotalLagMetric(consumerGroupId, jmxMetricsCollector);
     }
 } 

@@ -15,14 +15,13 @@ The module provides an optimized `KafkaAdmin` bean that automatically detects wh
 
 A `MeterBinder` implementation that registers the `kafka.consumer.totalLag` metric, which tracks consumer lag. It follows the Single Responsibility Principle by doing only one thing - registering the metric.
 
-### KafkaLagService
+### JmxMetricsCollector
 
-Provides the core functionality for:
-- Calculating consumer lag by tracking the difference between current consumer offsets and log end offsets
-- Maintaining the current lag value in memory
-- Scheduling regular lag calculation updates
-- Using batch processing to prevent memory issues with large topics
-- Managing Kafka AdminClient resources efficiently
+Provides lag monitoring by leveraging Kafka's built-in JMX metrics:
+- Uses the `records-lag-max` JMX metric exposed by Kafka Consumer clients
+- Avoids the need for complex AdminClient operations to calculate lag
+- Reduces the resource usage compared to manual lag calculation
+- Efficiently collects metrics from all consumer instances in the group
 
 ### Metrics Filtering
 
@@ -56,6 +55,15 @@ spring:
 The module follows a clean separation of concerns:
 
 1. `TotalLagMetric` - Purely registers the metric with Micrometer and defines the LagValueSupplier interface
-2. `KafkaLagService` - Implements LagValueSupplier and handles all the lag calculation business logic and scheduling
+2. `JmxMetricsCollector` - Implements LagValueSupplier by collecting the records-lag-max metric from JMX
 3. `KafkaConfig` - Provides optimized Kafka client configuration
-4. `MetricsFilterConfig` - Controls which metrics are exposed 
+4. `MetricsFilterConfig` - Controls which metrics are exposed
+
+## Advantages of JMX-based Lag Monitoring
+
+The `records-lag-max` metric is exposed by Kafka Consumer clients and provides several advantages:
+
+1. **Built-in Functionality**: Uses Kafka's native consumer lag tracking, which is more efficient than custom calculations
+2. **Memory Efficient**: Avoids the heap-intensive operations of AdminClient-based lag calculation
+3. **Real-time Accuracy**: Directly reflects the actual consumer's view of lag
+4. **SSL Compatibility**: Works reliably with both PLAINTEXT and SSL connections without the memory issues 
