@@ -16,7 +16,12 @@ import org.springframework.kafka.listener.ConsumerAwareRebalanceListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import javax.management.*;
+import javax.management.AttributeNotFoundException;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanInfo;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
 import java.lang.management.ManagementFactory;
 import java.util.Collection;
 import java.util.Set;
