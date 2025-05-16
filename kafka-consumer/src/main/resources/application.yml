@@ -14,8 +14,6 @@ management:
         enabled: true
       cloudwatch:
         enabled: false  # Disable Spring Boot's built-in CloudWatch exporter
-  jmx:
-    enabled: true
 
 spring:
   application:

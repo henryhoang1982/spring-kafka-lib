@@ -1,8 +1,10 @@
 package com.example.kafkametrics.service;
 
 import com.example.kafkametrics.config.TotalLagMetric.LagValueSupplier;
+import io.micrometer.common.lang.NonNullApi;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -17,7 +19,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.management.AttributeNotFoundException;
-import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * (management.jmx.enabled is not required for this collector)
  */
 @Slf4j
+@NonNullApi
 @Service
 @ConditionalOnProperty(name = {"spring.jmx.enabled"}, havingValue = "true")
 public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
@@ -119,17 +121,17 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
         // Get the existing rebalance listener and chain with ours
         ConsumerAwareRebalanceListener ourListener = new ConsumerAwareRebalanceListener() {
             @Override
-            public void onPartitionsRevokedBeforeCommit(org.apache.kafka.clients.consumer.Consumer<?, ?> consumer, Collection<TopicPartition> partitions) {
+            public void onPartitionsRevokedBeforeCommit(Consumer<?, ?> consumer, Collection<TopicPartition> partitions) {
                 log.debug("Partitions revoked before commit: {}", partitions);
             }
             
             @Override
-            public void onPartitionsRevokedAfterCommit(org.apache.kafka.clients.consumer.Consumer<?, ?> consumer, Collection<TopicPartition> partitions) {
+            public void onPartitionsRevokedAfterCommit(Consumer<?, ?> consumer, Collection<TopicPartition> partitions) {
                 log.debug("Partitions revoked after commit: {}", partitions);
             }
             
             @Override
-            public void onPartitionsAssigned(org.apache.kafka.clients.consumer.Consumer<?, ?> consumer, Collection<TopicPartition> partitions) {
+            public void onPartitionsAssigned(Consumer<?, ?> consumer, Collection<TopicPartition> partitions) {
                 log.info("Partitions assigned to consumer: {}", partitions);
                 
                 if (!partitions.isEmpty() && !initialized.getAndSet(true)) {
@@ -190,30 +192,30 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
             Set<ObjectName> beans = mbeanServer.queryNames(lagMetricPattern, null);
             log.info("Found {} JMX beans matching pattern *:*", beans.size());
             
-            int consumerBeanCount = 0;
-            int lagAttributeCount = 0;
+            // Filter to only consumer/kafka related beans
+            Set<ObjectName> consumerBeans = beans.stream()
+                    .filter(bean -> bean.toString().contains("consumer") || bean.toString().contains("kafka"))
+                    .collect(java.util.stream.Collectors.toSet());
             
-            for (ObjectName bean : beans) {
-                String name = bean.toString();
-                
-                // Only log consumer-related metrics to avoid flooding logs
-                if (name.contains("consumer") || name.contains("kafka")) {
-                    log.debug("Found consumer-related JMX bean: {}", name);
-                    consumerBeanCount++;
-                    
-                    // Check if this bean has lag-related attributes
-                    MBeanInfo info = mbeanServer.getMBeanInfo(bean);
-                    for (MBeanAttributeInfo attr : info.getAttributes()) {
-                        if (attr.getName().toLowerCase().equals(JMX_RECORDS_LAG_ATTR)) {
-                            log.info("Found lag metric: {} in bean {}", attr.getName(), name);
-                            lagAttributeCount++;
+            log.info("Found {} consumer-related beans", consumerBeans.size());
+            
+            // Count and log beans with our specific lag attribute
+            long lagAttributeCount = consumerBeans.stream()
+                    .filter(bean -> {
+                        try {
+                            MBeanInfo info = mbeanServer.getMBeanInfo(bean);
+                            return java.util.Arrays.stream(info.getAttributes())
+                                    .anyMatch(attr -> attr.getName().equals(JMX_RECORDS_LAG_ATTR));
+                        } catch (Exception e) {
+                            log.trace("Error checking attributes for bean {}: {}", bean, e.getMessage());
+                            return false;
                         }
-                    }
-                }
-            }
+                    })
+                    .peek(bean -> log.info("Found lag metric: {} in bean {}", JMX_RECORDS_LAG_ATTR, bean))
+                    .count();
             
             log.info("Found {} consumer-related beans, {} lag-related attributes",
-                    consumerBeanCount, lagAttributeCount);
+                    consumerBeans.size(), lagAttributeCount);
         } catch (Exception e) {
             log.error("Error listing consumer metrics: {}", e.getMessage(), e);
         }
@@ -244,37 +246,41 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
         }
 
         try {
+            // Pattern to match JMX object names for Kafka consumer lag metrics
+            String objectNamePattern = "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*,topic=*,partition=*";
+            ObjectName objNamePattern = new ObjectName(objectNamePattern);
             
-            // Patterns to match different JMX object name formats
-            String objectNamePatterns = "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*,topic=*,partition=*";
-
-            ObjectName objNamePattern = new ObjectName(objectNamePatterns);
+            // Get all beans matching our pattern
             Set<ObjectName> beans = mbeanServer.queryNames(objNamePattern, null);
 
             if (beans.isEmpty()) {
-                log.debug("No JMX beans found matching pattern: {}", objectNamePatterns);
+                log.debug("No JMX beans found matching pattern: {}", objectNamePattern);
+                return;
             }
 
-            log.debug("Found {} JMX beans matching pattern: {}", beans.size(), objectNamePatterns);
+            log.debug("Found {} JMX beans matching pattern: {}", beans.size(), objectNamePattern);
 
-            // For each matching bean, try each attribute name
-            long totalLag = 0;
-            for (ObjectName bean : beans) { // Number of beans will equal to listener concurrency
-                try {
-                    Object value = mbeanServer.getAttribute(bean, JMX_RECORDS_LAG_ATTR);
-                    if (value instanceof Number) {
-                        long lagValue = ((Number) value).longValue();
-                        log.debug("Found lag metric: {} = {} in {}", JMX_RECORDS_LAG_ATTR, lagValue, bean);
-                        totalLag += lagValue;
+            // Calculate total lag using streams
+            long totalLag = beans.stream()
+                .map(bean -> {
+                    try {
+                        Object value = mbeanServer.getAttribute(bean, JMX_RECORDS_LAG_ATTR);
+                        if (value instanceof Number) {
+                            long lagValue = ((Number) value).longValue();
+                            log.debug("Found lag metric: {} = {} in {}", JMX_RECORDS_LAG_ATTR, lagValue, bean);
+                            return lagValue;
+                        }
+                    } catch (AttributeNotFoundException e) {
+                        log.trace("Attribute {} not found in bean {}", JMX_RECORDS_LAG_ATTR, bean);
+                    } catch (Exception e) {
+                        log.error("Error reading attribute {} from bean {}: {}", 
+                                JMX_RECORDS_LAG_ATTR, bean, e.getMessage());
                     }
-                } catch (AttributeNotFoundException e) {
-                    // This is expected for beans that don't have this attribute
-                    log.trace("Attribute {} not found in bean {}", JMX_RECORDS_LAG_ATTR, bean);
-                } catch (Exception e) {
-                    log.error("Error reading attribute {} from bean {}: {}",
-                            JMX_RECORDS_LAG_ATTR, bean, e.getMessage());
-                }
-            }
+                    return 0L;
+                })
+                .mapToLong(Long::longValue)
+                .sum();
+            
             currentLag.set(totalLag);
             
         } catch (Exception e) {
