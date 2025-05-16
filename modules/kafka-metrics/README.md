@@ -17,11 +17,19 @@ A `MeterBinder` implementation that registers the `kafka.consumer.totalLag` metr
 
 ### JmxMetricsCollector
 
-Provides lag monitoring by leveraging Kafka's built-in JMX metrics:
+Provides lag monitoring by leveraging Kafka's built-in JMX metrics when JMX is enabled:
 - Uses the `records-lag-max` JMX metric exposed by Kafka Consumer clients
 - Avoids the need for complex AdminClient operations to calculate lag
 - Reduces the resource usage compared to manual lag calculation
 - Efficiently collects metrics from all consumer instances in the group
+
+### KafkaLagService
+
+A fallback service that calculates consumer lag using AdminClient when JMX is disabled:
+- Calculates consumer lag by comparing current offsets with end offsets
+- Handles memory optimization for large numbers of partitions
+- Provides the same interface as JmxMetricsCollector
+- Used automatically when `spring.jmx.enabled=false`
 
 ### Metrics Filtering
 
@@ -50,14 +58,45 @@ spring:
       group-id: your-consumer-group
 ```
 
+### JMX Configuration
+
+For optimal performance, enable JMX in your application to use the built-in Kafka consumer metrics:
+
+```yaml
+# Required setting for JMX-based metrics collection
+spring:
+  jmx:
+    enabled: true
+
+# Optional - only needed if you want Spring Boot Actuator endpoints via JMX
+management:
+  endpoints:
+    jmx:
+      exposure:
+        include: "*"
+  jmx:
+    enabled: true
+```
+
+The module has built-in fallback logic:
+- With JMX enabled (`spring.jmx.enabled=true`): Uses the efficient `records-lag-max` metric directly from Kafka
+- With JMX disabled: Falls back to calculating lag using AdminClient (higher memory usage)
+
+You can enable JMX by using the included `application-jmx.yml` profile:
+
+```bash
+java -jar your-application.jar --spring.profiles.active=jmx
+```
+
 ## Architecture
 
 The module follows a clean separation of concerns:
 
 1. `TotalLagMetric` - Purely registers the metric with Micrometer and defines the LagValueSupplier interface
-2. `JmxMetricsCollector` - Implements LagValueSupplier by collecting the records-lag-max metric from JMX
-3. `KafkaConfig` - Provides optimized Kafka client configuration
-4. `MetricsFilterConfig` - Controls which metrics are exposed
+2. `JmxMetricsCollector` - Used when JMX is enabled to efficiently collect metrics
+3. `KafkaLagService` - Used as fallback when JMX is disabled
+4. `KafkaConfig` - Provides optimized Kafka client configuration
+5. `MetricsFilterConfig` - Controls which metrics are exposed
 
 ## Advantages of JMX-based Lag Monitoring
 

@@ -1,0 +1,30 @@
+# Configuration file with JMX enabled for better metrics collection
+# Use with: --spring.profiles.active=jmx
+
+# Enable JMX for metrics collection - THIS IS THE ESSENTIAL SETTING
+spring:
+  jmx:
+    enabled: true  # Required for JmxMetricsCollector to access Kafka's JMX metrics
+  
+# The following management settings are OPTIONAL
+# They control Spring Boot's Actuator endpoints exposure via JMX
+# Not required for accessing Kafka's records-lag-max metric
+management:
+  endpoints:
+    jmx:
+      exposure:
+        include: "*"  # Optional - exposes Spring Boot endpoints via JMX
+  jmx:
+    enabled: true     # Optional - enables JMX-based management
+  
+  # Configure metrics export interval - applies to both JMX and AdminClient
+  metrics:
+    export:
+      cloudwatch:
+        step: 60s  # 1 minute reporting interval
+
+# Configure logging for metrics components
+logging:
+  level:
+    com.example.kafkametrics: DEBUG
+    org.apache.kafka: INFO 

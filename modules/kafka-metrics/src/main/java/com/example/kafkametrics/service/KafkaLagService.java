@@ -7,6 +7,8 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,9 +22,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+/**
+ * Fallback service for calculating consumer lag when JMX is disabled.
+ * This implementation uses the KafkaAdmin client to calculate lag,
+ * which can be more resource-intensive but doesn't require JMX.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "spring.jmx.enabled", havingValue = "false", matchIfMissing = true)
+@Primary
 public class KafkaLagService implements LagValueSupplier {
     private final KafkaAdmin kafkaAdmin;
     private final String consumerGroupId;
@@ -33,7 +42,7 @@ public class KafkaLagService implements LagValueSupplier {
     @PostConstruct
     public void init() {
         this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
-        log.info("Initialized KafkaLagService for consumer group: {}", consumerGroupId);
+        log.info("Initialized KafkaLagService for consumer group: {} (JMX disabled fallback)", consumerGroupId);
         
         // Initial calculation
         refreshLag();

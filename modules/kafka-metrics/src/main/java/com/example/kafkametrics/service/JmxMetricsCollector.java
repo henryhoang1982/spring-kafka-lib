@@ -5,6 +5,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -17,15 +18,20 @@ import java.util.concurrent.atomic.AtomicLong;
  * Service that collects consumer lag metrics directly from JMX.
  * This approach utilizes the built-in Kafka Consumer metrics instead of
  * calculating lag manually through the AdminClient API.
+ * 
+ * Note: Requires only spring.jmx.enabled=true
+ * (management.jmx.enabled is not required for this collector)
  */
 @Slf4j
 @Service
+@ConditionalOnProperty(name = {"spring.jmx.enabled"}, havingValue = "true")
 public class JmxMetricsCollector implements LagValueSupplier {
     
     private final String consumerGroupId;
     private final AtomicLong currentLag = new AtomicLong(0);
     private MBeanServer mbeanServer;
     private ObjectName lagMetricPattern;
+    private boolean jmxAvailable = false;
 
     public JmxMetricsCollector(@Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
         this.consumerGroupId = consumerGroupId;
@@ -39,6 +45,7 @@ public class JmxMetricsCollector implements LagValueSupplier {
             // The pattern will match all consumer instances for our group-id
             String pattern = "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*,consumer-id=*";
             lagMetricPattern = new ObjectName(pattern);
+            jmxAvailable = true;
             
             log.info("Initialized JMX metrics collector for consumer group: {}", consumerGroupId);
             
@@ -46,6 +53,8 @@ public class JmxMetricsCollector implements LagValueSupplier {
             refreshLag();
         } catch (MalformedObjectNameException e) {
             log.error("Error creating JMX ObjectName pattern: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error initializing JMX metrics collector: {}", e.getMessage(), e);
         }
     }
     
@@ -56,6 +65,11 @@ public class JmxMetricsCollector implements LagValueSupplier {
     
     @Scheduled(fixedRateString = "${management.metrics.export.cloudwatch.step:60000}")
     public void refreshLag() {
+        if (!jmxAvailable) {
+            log.warn("JMX not available - cannot collect consumer lag metrics");
+            return;
+        }
+        
         try {
             long maxLag = collectMaxLag();
             if (maxLag >= 0) {
