@@ -1,19 +1,16 @@
 package com.example.kafkametrics.config;
 
+import com.example.kafkametrics.config.TotalLagMetric.LagValueSupplier;
+import com.example.kafkametrics.service.JmxMetricsCollector;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.config.MeterFilterReply;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
-import org.springframework.kafka.core.KafkaAdmin;
-import com.example.kafkametrics.config.TotalLagMetric.LagValueSupplier;
-import com.example.kafkametrics.service.JmxMetricsCollector;
-import com.example.kafkametrics.service.KafkaLagService;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.HashSet;
@@ -67,12 +64,5 @@ public class MetricsFilterConfig {
         String serviceType = lagValueSupplier instanceof JmxMetricsCollector ? "JMX" : "AdminClient";
         log.info("Creating TotalLagMetric bean for consumer group: {} using {} metrics", consumerGroupId, serviceType);
         return new TotalLagMetric(consumerGroupId, lagValueSupplier);
-    }
-    
-    @Bean
-    @ConditionalOnProperty(name = "spring.kafka.consumer.group-id")
-    public KafkaAdmin kafkaAdmin(KafkaProperties kafkaProperties) {
-        log.info("Creating KafkaAdmin bean for consumer group metrics");
-        return new KafkaAdmin(kafkaProperties.buildAdminProperties());
     }
 } 

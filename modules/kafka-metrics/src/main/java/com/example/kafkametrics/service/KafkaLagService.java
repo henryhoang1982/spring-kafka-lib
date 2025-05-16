@@ -1,6 +1,8 @@
 package com.example.kafkametrics.service;
 
 import com.example.kafkametrics.config.TotalLagMetric.LagValueSupplier;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -11,10 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +27,6 @@ import java.util.stream.Collectors;
  * which can be more resource-intensive but doesn't require JMX.
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "spring.jmx.enabled", havingValue = "false", matchIfMissing = true)
 @Primary

@@ -15,11 +15,13 @@ management:
       cloudwatch:
         enabled: false  # Disable Spring Boot's built-in CloudWatch exporter
   jmx:
-    enabled: false
+    enabled: true
 
 spring:
   application:
     name: kafka-consumer
+  jmx:
+    enabled: true  # Enable Spring JMX support
   kafka:
     consumer:
       bootstrap-servers: localhost:9092
@@ -27,6 +29,8 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
+        # Enable JMX reporting for Kafka consumer metrics
+        metrics.recording.level: INFO
         # Memory optimizations
         receive.buffer.bytes: 32768
         send.buffer.bytes: 32768
@@ -43,11 +47,6 @@ spring:
       type: batch
       # Control concurrency more explicitly
       concurrency: 3
-  jmx:
-    enabled: false
-  autoconfigure:
-    exclude:
-      - io.awspring.cloud.autoconfigure.metrics.CloudWatchExportAutoConfiguration
 
 # Configure logging
 logging:

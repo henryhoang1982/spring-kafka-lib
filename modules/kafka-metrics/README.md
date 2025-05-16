@@ -60,29 +60,30 @@ spring:
 
 ### JMX Configuration
 
-For optimal performance, enable JMX in your application to use the built-in Kafka consumer metrics:
+To enable JMX-based lag monitoring, simply ensure JMX is enabled in your Spring Boot application:
 
 ```yaml
 # Required setting for JMX-based metrics collection
 spring:
   jmx:
     enabled: true
-
-# Optional - only needed if you want Spring Boot Actuator endpoints via JMX
-management:
-  endpoints:
-    jmx:
-      exposure:
-        include: "*"
-  jmx:
-    enabled: true
+  
+  # Make sure Kafka metrics are recorded
+  kafka:
+    consumer:
+      properties:
+        metrics.recording.level: INFO
 ```
 
-The module has built-in fallback logic:
-- With JMX enabled (`spring.jmx.enabled=true`): Uses the efficient `records-lag-max` metric directly from Kafka
-- With JMX disabled: Falls back to calculating lag using AdminClient (higher memory usage)
+Then, when running your application, add these JVM arguments:
 
-You can enable JMX by using the included `application-jmx.yml` profile:
+```bash
+-Dcom.sun.management.jmxremote 
+-Dcom.sun.management.jmxremote.authenticate=false 
+-Dcom.sun.management.jmxremote.ssl=false
+```
+
+For convenience, you can use the provided profile by running:
 
 ```bash
 java -jar your-application.jar --spring.profiles.active=jmx
