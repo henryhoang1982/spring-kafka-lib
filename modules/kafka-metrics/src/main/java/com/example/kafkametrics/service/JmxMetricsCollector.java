@@ -1,18 +1,17 @@
 package com.example.kafkametrics.service;
 
 import com.example.kafkametrics.config.TotalLagMetric.LagValueSupplier;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.scheduling.annotation.Scheduled;
-
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
 import javax.management.*;
-import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Service that collects consumer lag metrics directly from JMX.
