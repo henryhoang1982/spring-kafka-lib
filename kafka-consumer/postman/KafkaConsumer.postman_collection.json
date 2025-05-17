@@ -1,0 +1,159 @@
+{
+	"info": {
+		"_postman_id": "kafka-consumer-collection",
+		"name": "Kafka Consumer API",
+		"description": "Collection for Kafka Consumer API endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Reset Kafka Consumer Offset",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"topic\": \"my-topic\",\n    \"partition\": 0,\n    \"offset\": 100\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/kafka/offset/reset",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"kafka",
+						"offset",
+						"reset"
+					]
+				},
+				"description": "Reset the offset for a specific topic and partition"
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"topic\": \"my-topic\",\n    \"partition\": 0,\n    \"offset\": 100\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/kafka/offset/reset",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"kafka",
+								"offset",
+								"reset"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"body": "{\n    \"status\": \"success\",\n    \"message\": \"Successfully reset offset for topic=my-topic, partition=0 to offset=100\"\n}"
+				}
+			]
+		},
+		{
+			"name": "Actuator Health",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/actuator/health",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"actuator",
+						"health"
+					]
+				},
+				"description": "Get application health status"
+			}
+		},
+		{
+			"name": "Actuator Metrics",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/actuator/metrics",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"actuator",
+						"metrics"
+					]
+				},
+				"description": "List all available metrics"
+			}
+		},
+		{
+			"name": "Actuator Kafka Metrics",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/actuator/metrics/kafka.consumer.totalLag",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"actuator",
+						"metrics",
+						"kafka.consumer.totalLag"
+					]
+				},
+				"description": "Get Kafka consumer lag metrics"
+			}
+		},
+		{
+			"name": "Actuator Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/actuator/info",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"actuator",
+						"info"
+					]
+				},
+				"description": "Get application information"
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8081",
+			"type": "string"
+		}
+	]
+} 
