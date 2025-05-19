@@ -55,7 +55,7 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
     private final ScheduledExecutorService initializationScheduler = Executors.newSingleThreadScheduledExecutor();
 
     // Attribute Patterns to look for, from most specific to most generic
-    private final String JMX_RECORDS_LAG_ATTR = "records-lag";
+    private final String JMX_RECORDS_LAG_ATTR = "records-lag-max";
 
     public JmxMetricsCollector(
             @Value("${spring.kafka.consumer.group-id}") String consumerGroupId,
@@ -229,7 +229,7 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
     /**
      * Refresh lag metrics every minute (or as configured in application.yml)
      */
-    @Scheduled(fixedRateString = "${kafka.metrics.cloudwatch.step:60s}")
+    @Scheduled(fixedRateString = "${kafka.metrics.step:PT10S}")
     public void refreshLag() {
         if (!initialized.get()) {
             log.info("JMX metrics collector not yet initialized, skipping lag refresh");
@@ -247,7 +247,8 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
 
         try {
             // Pattern to match JMX object names for Kafka consumer lag metrics
-            String objectNamePattern = "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*,topic=*,partition=*";
+            // Note: For records-lag-max, we don't need partition in the pattern
+            String objectNamePattern = "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*";
             ObjectName objNamePattern = new ObjectName(objectNamePattern);
             
             // Get all beans matching our pattern
@@ -260,14 +261,14 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
 
             log.debug("Found {} JMX beans matching pattern: {}", beans.size(), objectNamePattern);
 
-            // Calculate total lag using streams
-            long totalLag = beans.stream()
+            // Calculate maximum lag across all topics using streams
+            long totalMaxLag = beans.stream()
                 .map(bean -> {
                     try {
                         Object value = mbeanServer.getAttribute(bean, JMX_RECORDS_LAG_ATTR);
                         if (value instanceof Number) {
                             long lagValue = ((Number) value).longValue();
-                            log.debug("Found lag metric: {} = {} in {}", JMX_RECORDS_LAG_ATTR, lagValue, bean);
+                            log.debug("Found max lag metric: {} = {} in {}", JMX_RECORDS_LAG_ATTR, lagValue, bean);
                             return lagValue;
                         }
                     } catch (AttributeNotFoundException e) {
@@ -280,8 +281,10 @@ public class JmxMetricsCollector implements LagValueSupplier, SmartLifecycle {
                 })
                 .mapToLong(Long::longValue)
                 .sum();
+
+            log.info("Calculated total lag is {}", String.format("%d", totalMaxLag));
             
-            currentLag.set(totalLag);
+            currentLag.set(totalMaxLag);
             
         } catch (Exception e) {
             log.error("Error collecting lag metrics from JMX: {}", e.getMessage(), e);

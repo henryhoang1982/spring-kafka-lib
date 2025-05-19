@@ -29,6 +29,8 @@ spring:
       properties:
         # Enable JMX reporting for Kafka consumer metrics
         metrics.recording.level: INFO
+        # Set metrics sampling window to 5 seconds (default is 30s)
+        metrics.sample.window.ms: 5000
         # Memory optimizations
         receive.buffer.bytes: 32768
         send.buffer.bytes: 32768
@@ -58,11 +60,10 @@ logging:
 metrics:
   filter:
     allowed:
-      - kafka.consumer.totalLag
+      - kafka.consumer.totalLag  # Our custom aggregated lag metric
       - jvm.memory.used
       - system.cpu.usage
-    # - kafka.*
-    
+
 app:
   kafka:
     topic: topic.x 
@@ -73,8 +74,6 @@ app:
 # Configure kafka-metrics module
 kafka:
   metrics:
+    step: PT10S
     cloudwatch:
-      enabled: true  # Enable our custom CloudWatch configuration
-      namespace: KafkaMetrics  # Default namespace when enabled
-      step: 15000 # 1 minute reporting interval
-      batch-size: 10  # Reduced batch size for memory optimization 
+      enabled: false  # Disable custom CloudWatch exporter

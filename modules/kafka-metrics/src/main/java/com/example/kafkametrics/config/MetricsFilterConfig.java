@@ -18,42 +18,36 @@ import java.util.Set;
 
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(MetricsProperties.class)
 @EnableScheduling
+@EnableConfigurationProperties(MetricsProperties.class)
 public class MetricsFilterConfig {
+
     private final MetricsProperties metricsProperties;
 
     public MetricsFilterConfig(MetricsProperties metricsProperties) {
         this.metricsProperties = metricsProperties;
-        log.info("Initialized MetricsFilterConfig with properties: {}", metricsProperties.getAllowed());
     }
 
     @Bean
-    public MeterFilter meterFilter() {
-        log.info("Creating meter filter with allowed metrics: {}", metricsProperties.getAllowed());
-        
-        // Convert to a Set for faster lookups
+    public MeterFilter metricsFilter() {
         Set<String> allowedMetrics = new HashSet<>(metricsProperties.getAllowed());
-        
+        log.info("Configuring metrics filter with allowed metrics: {}", allowedMetrics);
+
         return new MeterFilter() {
             @Override
             public MeterFilterReply accept(Meter.Id id) {
                 String metricName = id.getName();
+                // Check if metric name matches any of our allowed patterns
+                boolean allowed = allowedMetrics.stream()
+                        .anyMatch(pattern -> 
+                            pattern.endsWith(".*") 
+                                ? metricName.startsWith(pattern.substring(0, pattern.length() - 2))
+                                : metricName.equals(pattern)
+                        );
                 
-                // Check if this metric is in our allowed list
-                if (allowedMetrics.contains(metricName)) {
-                    return MeterFilterReply.ACCEPT;
-                }
-                
-                // Handle pattern matching for patterns ending with .*
-                for (String prefix : allowedMetrics) {
-                    if (prefix.endsWith(".*") && metricName.startsWith(prefix.substring(0, prefix.length() - 2))) {
-                        return MeterFilterReply.ACCEPT;
-                    }
-                }
-                
-                // Deny all other metrics
-                return MeterFilterReply.DENY;
+                MeterFilterReply reply = allowed ? MeterFilterReply.ACCEPT : MeterFilterReply.DENY;
+                log.debug("Metric {} is {}", metricName, reply);
+                return reply;
             }
         };
     }
