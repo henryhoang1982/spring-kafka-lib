@@ -2,6 +2,73 @@
 
 This module provides metrics collection and monitoring capabilities for Kafka consumers and producers.
 
+## Integration Checklist
+
+To integrate this module into your service (e.g., kafka-consumer), follow these steps:
+
+1. **Add Module Dependency**
+   ```xml
+   <dependency>
+       <groupId>com.example</groupId>
+       <artifactId>kafka-metrics</artifactId>
+       <version>${project.version}</version>
+   </dependency>
+   ```
+
+2. **Enable Required Spring Features**
+   - Add `@EnableScheduling` to your main application class
+   - Ensure component scanning includes `com.example.kafkametrics` package
+
+3. **Configuration Requirements**
+   ```yaml
+   spring:
+     jmx:
+       enabled: true  # Required for JMX metrics collection
+   
+   # Optional: Configure metrics refresh rate (default: 10 seconds)
+   kafka:
+     metrics:
+       step: PT10S
+
+   spring:
+     kafka:
+       consumer:
+         properties:
+           # Enable JMX reporting for Kafka consumer metrics
+           metrics.recording.level: INFO
+           # Set metrics sampling window (how often Kafka updates JMX metrics)
+           metrics.sample.window.ms: 5000  # Default is 30000ms (30 seconds)
+   
+   # Configure which metrics to expose
+   metrics:
+     filter:
+       allowed:
+         - kafka.consumer.totalLag  # Our custom aggregated lag metric
+         - "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*:records-lag"
+         - "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*:records-lag-max"
+         - "kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*:records-lag-avg"
+   ```
+
+4. **Actuator Configuration**
+   ```yaml
+   management:
+     endpoints:
+       web:
+         exposure:
+           include: "metrics,prometheus"
+     metrics:
+       tags:
+         application: ${spring.application.name}
+   ```
+
+## Available Metrics
+
+The module provides the following Kafka consumer lag metrics:
+- `kafka.consumer.totalLag`: Custom aggregated lag metric across all partitions
+- `records-lag`: Current lag per partition
+- `records-lag-max`: Maximum lag across all partitions
+- `records-lag-avg`: Average lag across all partitions
+
 ## Components
 
 ### KafkaAdmin Configuration
@@ -17,11 +84,11 @@ A `MeterBinder` implementation that registers the `kafka.consumer.totalLag` metr
 
 ### JmxMetricsCollector
 
-Provides lag monitoring by leveraging Kafka's built-in JMX metrics when JMX is enabled:
-- Uses the `records-lag-max` JMX metric exposed by Kafka Consumer clients
-- Avoids the need for complex AdminClient operations to calculate lag
-- Reduces the resource usage compared to manual lag calculation
-- Efficiently collects metrics from all consumer instances in the group
+Primary component that collects Kafka consumer lag metrics via JMX:
+- Uses Kafka's built-in JMX metrics
+- Automatically initializes when consumer starts
+- Refreshes metrics at configurable intervals (default: 10 seconds)
+- Requires only `spring.jmx.enabled=true`
 
 ### KafkaLagService
 
@@ -31,63 +98,37 @@ A fallback service that calculates consumer lag using AdminClient when JMX is di
 - Provides the same interface as JmxMetricsCollector
 - Used automatically when `spring.jmx.enabled=false`
 
-### Metrics Filtering
+### MetricsFilterConfig
 
-Provides configuration to specify which metrics should be exposed.
+Configures which metrics are exposed through Actuator/Prometheus:
+- Allows fine-grained control over exposed metrics
+- Supports pattern-based metric inclusion
+- Automatically picks up configuration from `metrics.filter.allowed`
 
-## Usage
+## Monitoring
 
-Include this module in your Spring Boot application and ensure your `application.yml` includes:
+Access metrics through:
+1. Actuator endpoint: `/actuator/metrics`
+2. Prometheus endpoint: `/actuator/prometheus`
+3. Specific metric: `/actuator/metrics/kafka.consumer.totalLag`
 
-```yaml
-metrics:
-  filter:
-    allowed:
-      - kafka.consumer.totalLag
-      - jvm.memory.used
-      - system.cpu.usage
-      # Add other metrics you want to expose
-```
+## Troubleshooting
 
-Additionally, configure your Kafka consumer group ID:
+1. Verify JMX is enabled:
+   ```yaml
+   spring.jmx.enabled: true
+   ```
 
-```yaml
-spring:
-  kafka:
-    consumer:
-      group-id: your-consumer-group
-```
+2. Check logs for:
+   - "JMX metrics collector initialized successfully"
+   - "Found lag metric: records-lag-max"
 
-### JMX Configuration
-
-To enable JMX-based lag monitoring, simply ensure JMX is enabled in your Spring Boot application:
-
-```yaml
-# Required setting for JMX-based metrics collection
-spring:
-  jmx:
-    enabled: true
-  
-  # Make sure Kafka metrics are recorded
-  kafka:
-    consumer:
-      properties:
-        metrics.recording.level: INFO
-```
-
-Then, when running your application, add these JVM arguments:
-
-```bash
--Dcom.sun.management.jmxremote 
--Dcom.sun.management.jmxremote.authenticate=false 
--Dcom.sun.management.jmxremote.ssl=false
-```
-
-For convenience, you can use the provided profile by running:
-
-```bash
-java -jar your-application.jar --spring.profiles.active=jmx
-```
+3. Common issues:
+   - JMX not enabled → Enable with `spring.jmx.enabled=true`
+   - Metrics not visible → Check `metrics.filter.allowed` configuration
+   - Lag not updating → Check both:
+     - `kafka.metrics.step` (how often we collect from JMX)
+     - `metrics.sample.window.ms` (how often Kafka updates JMX metrics)
 
 ## Architecture
 
