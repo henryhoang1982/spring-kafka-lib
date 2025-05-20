@@ -7,165 +7,246 @@
 	},
 	"item": [
 		{
-			"name": "Reset Kafka Consumer Offset",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"topic\": \"my-topic\",\n    \"partition\": 0,\n    \"offset\": 100\n}"
-				},
-				"url": {
-					"raw": "{{baseUrl}}/api/kafka/offset/reset",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"api",
-						"kafka",
-						"offset",
-						"reset"
-					]
-				},
-				"description": "Reset the offset for a specific topic and partition"
-			},
-			"response": [
+			"name": "Consumer Control",
+			"item": [
 				{
-					"name": "Success Response",
-					"originalRequest": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"topic\": \"my-topic\",\n    \"partition\": 0,\n    \"offset\": 100\n}"
-						},
+					"name": "Get Kafka Listener IDs",
+					"request": {
+						"method": "GET",
+						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/kafka/offset/reset",
+							"raw": "{{baseUrl}}/api/kafka/consumer/listeners",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"api",
 								"kafka",
-								"offset",
-								"reset"
+								"consumer",
+								"listeners"
 							]
-						}
-					},
-					"status": "OK",
-					"code": 200,
-					"_postman_previewlanguage": "json",
-					"header": [
-						{
-							"key": "Content-Type",
-							"value": "application/json"
-						}
-					],
-					"body": "{\n    \"status\": \"success\",\n    \"message\": \"Successfully reset offset for topic=my-topic, partition=0 to offset=100\"\n}"
+						},
+						"description": "Get list of all Kafka listener IDs"
+					}
+				},
+				{
+					"name": "Pause All Consumers",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/kafka/consumer/pause/all",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"kafka",
+								"consumer",
+								"pause",
+								"all"
+							]
+						},
+						"description": "Pause all Kafka consumers. Returns status for each consumer. Metrics will continue to be reported."
+					}
+				},
+				{
+					"name": "Resume All Consumers",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/kafka/consumer/resume/all",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"kafka",
+								"consumer",
+								"resume",
+								"all"
+							]
+						},
+						"description": "Resume all paused Kafka consumers. Returns status for each consumer."
+					}
+				},
+				{
+					"name": "Pause Kafka Consumer",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/kafka/consumer/pause?listenerId=your-listener-id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"kafka",
+								"consumer",
+								"pause"
+							],
+							"query": [
+								{
+									"key": "listenerId",
+									"value": "your-listener-id",
+									"description": "The ID of the Kafka listener to pause"
+								}
+							]
+						},
+						"description": "Pause a specific Kafka consumer by its listener ID (metrics will continue to be reported)"
+					}
+				},
+				{
+					"name": "Resume Kafka Consumer",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/kafka/consumer/resume?listenerId=your-listener-id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"kafka",
+								"consumer",
+								"resume"
+							],
+							"query": [
+								{
+									"key": "listenerId",
+									"value": "your-listener-id",
+									"description": "The ID of the Kafka listener to resume"
+								}
+							]
+						},
+						"description": "Resume a paused Kafka consumer by its listener ID"
+					}
 				}
 			]
 		},
 		{
-			"name": "Actuator Health",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{baseUrl}}/actuator/health",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"actuator",
-						"health"
-					]
+			"name": "Metrics",
+			"item": [
+				{
+					"name": "Get All Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"metrics"
+							]
+						},
+						"description": "List all available metrics"
+					}
 				},
-				"description": "Get application health status"
-			}
+				{
+					"name": "Get Custom Consumer Lag Metric",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics/custom.kafka.consumer.lag",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"metrics",
+								"custom.kafka.consumer.lag"
+							]
+						},
+						"description": "Get the custom consumer lag metric derived from records-lag-max. Includes tags: consumer_group, application, metric_type"
+					}
+				},
+				{
+					"name": "Get Records Lag Max Metric",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics/kafka.consumer.fetch.manager.records.lag.max",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"metrics",
+								"kafka.consumer.fetch.manager.records.lag.max"
+							]
+						},
+						"description": "Get the maximum records lag metric across all partitions. Includes tags: consumer_group, metric_type"
+					}
+				},
+				{
+					"name": "Get Total Lag Metric",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics/kafka.consumer.totalLag",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"metrics",
+								"kafka.consumer.totalLag"
+							]
+						},
+						"description": "Get the total consumer lag metric. Includes tag: consumerGroupId"
+					}
+				}
+			]
 		},
 		{
-			"name": "Actuator Metrics",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{baseUrl}}/actuator/metrics",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"actuator",
-						"metrics"
-					]
+			"name": "Health and Info",
+			"item": [
+				{
+					"name": "Get Health Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Get application health status"
+					}
 				},
-				"description": "List all available metrics"
-			}
-		},
-		{
-			"name": "Actuator Kafka Metrics",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{baseUrl}}/actuator/metrics/kafka.consumer.totalLag",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"actuator",
-						"metrics",
-						"kafka.consumer.totalLag"
-					]
-				},
-				"description": "Get Kafka consumer lag metrics"
-			}
-		},
-		{
-			"name": "Actuator Info",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{baseUrl}}/actuator/info",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"actuator",
-						"info"
-					]
-				},
-				"description": "Get application information"
-			}
-		},
-		{
-			"name": "Actuator Custom Lag Metric",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{baseUrl}}/actuator/metrics/custom.kafka.consumer.lag",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"actuator",
-						"metrics",
-						"custom.kafka.consumer.lag"
-					]
-				},
-				"description": "Get custom Kafka consumer lag metric derived from records-lag-max"
-			}
+				{
+					"name": "Get Application Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/info",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"info"
+							]
+						},
+						"description": "Get application information"
+					}
+				}
+			]
 		}
 	],
 	"variable": [

@@ -17,6 +17,15 @@ management:
         step: 1m  # How often to publish to CloudWatch
         batch-size: 20
         enabled: true
+    # Configure metrics filtering
+    enable:
+      http: true
+      jvm: true
+    web:
+      server:
+        request:
+          autotime:
+            enabled: true
 
 spring:
   application:
@@ -56,6 +65,8 @@ logging:
   level:
     com.example.kafkametrics: DEBUG
     org.apache.kafka: INFO
+    # Set to WARN to hide the DENY messages
+    io.micrometer.core.instrument.MeterFilter: WARN
 
 # Metrics filtering configuration
 # List of metrics to expose, all others will be filtered out
@@ -68,6 +79,8 @@ metrics:
       - custom.kafka.consumer.lag
       - jvm.memory.used
       - system.cpu.usage
+      - http.server.requests
+      - http.server.requests.active
 
 app:
   kafka:

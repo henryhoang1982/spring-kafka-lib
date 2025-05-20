@@ -6,7 +6,11 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Component
@@ -16,10 +20,14 @@ public class CustomLagMetric implements MeterBinder {
     private final String applicationName;
     private static final String SOURCE_METRIC_NAME = "kafka.consumer.fetch.manager.records.lag.max";
     private static final String CUSTOM_METRIC_NAME = "custom.kafka.consumer.lag";
+    
+    // Store the last known valid lag value
+    private final AtomicReference<Double> lastKnownLag = new AtomicReference<>(0.0);
 
     public CustomLagMetric(
             @Value("${spring.kafka.consumer.group-id}") String consumerGroupId,
-            @Value("${spring.application.name:unknown}") String applicationName) {
+            @Value("${spring.application.name:unknown}") String applicationName,
+            KafkaListenerEndpointRegistry kafkaRegistry) {
         this.consumerGroupId = consumerGroupId;
         this.applicationName = applicationName;
     }
@@ -36,12 +44,21 @@ public class CustomLagMetric implements MeterBinder {
                 .register(registry);
     }
 
-    private Double fetchLagValue(MeterRegistry registry) {
-        return registry.find(SOURCE_METRIC_NAME)
+    private Double fetchLagValue(MeterRegistry meterRegistry) {
+        // Get the current lag value
+        Double currentLag = meterRegistry.find(SOURCE_METRIC_NAME)
                 .meters()
                 .stream()
                 .filter(meter -> meter instanceof io.micrometer.core.instrument.Gauge)
                 .mapToDouble(meter -> ((io.micrometer.core.instrument.Gauge) meter).value())
                 .sum();
+
+        // Update the last known lag value if we got a valid value
+        if (!currentLag.isNaN() && currentLag >= 0) {
+            lastKnownLag.set(currentLag);
+            log.debug("Updated last known lag value to: {}", currentLag);
+        }
+
+        return lastKnownLag.get();
     }
 } 
