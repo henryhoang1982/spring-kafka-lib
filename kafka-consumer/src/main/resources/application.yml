@@ -13,7 +13,10 @@ management:
       prometheus:
         enabled: true
       cloudwatch:
-        enabled: false  # Disable Spring Boot's built-in CloudWatch exporter
+        namespace: CustomKafkaMetrics  # Namespace for our custom metrics
+        step: 1m  # How often to publish to CloudWatch
+        batch-size: 20
+        enabled: true
 
 spring:
   application:
@@ -61,6 +64,8 @@ metrics:
   filter:
     allowed:
       - kafka.consumer.totalLag  # Our custom aggregated lag metric
+      - kafka.consumer.fetch.manager.records.lag.max
+      - custom.kafka.consumer.lag
       - jvm.memory.used
       - system.cpu.usage
 

@@ -147,6 +147,25 @@
 				},
 				"description": "Get application information"
 			}
+		},
+		{
+			"name": "Actuator Custom Lag Metric",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/actuator/metrics/custom.kafka.consumer.lag",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"actuator",
+						"metrics",
+						"custom.kafka.consumer.lag"
+					]
+				},
+				"description": "Get custom Kafka consumer lag metric derived from records-lag-max"
+			}
 		}
 	],
 	"variable": [
