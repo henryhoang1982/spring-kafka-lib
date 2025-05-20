@@ -60,7 +60,17 @@ public class MetricsFilterConfig {
             public Meter.Id map(Meter.Id id) {
                 // Add custom tags to Kafka lag metrics
                 if (id.getName().startsWith("kafka.consumer.fetch.manager.records.lag")) {
-                    List<Tag> tags = new ArrayList<>(id.getTags());
+                    // Log existing tags for debugging
+                    id.getTags().forEach(tag -> 
+                        log.debug("Existing tag for metric {}: {}={}", id.getName(), tag.getKey(), tag.getValue())
+                    );
+
+                    // Create new tags list, excluding unwanted default tags
+                    List<Tag> tags = id.getTags().stream()
+                        .filter(tag -> !shouldRemoveTag(tag.getKey()))
+                        .collect(java.util.stream.Collectors.toList());
+
+                    // Add our custom tags
                     tags.add(Tag.of("consumer_group", consumerGroupId));
                     tags.add(Tag.of("metric_type", "consumer_lag"));
                     
@@ -73,6 +83,13 @@ public class MetricsFilterConfig {
                     return id.withTags(tags);
                 }
                 return id;
+            }
+
+            private boolean shouldRemoveTag(String tagKey) {
+                // List of tag keys to remove
+                return tagKey.equals("client-id") ||      // Remove client-id tag
+                       tagKey.equals("kafka-version") ||  // Remove kafka version tag
+                       tagKey.equals("spring.id");        // Remove spring id tag
             }
         };
     }
