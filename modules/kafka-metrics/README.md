@@ -69,6 +69,14 @@ The module provides the following Kafka consumer lag metrics:
 - `records-lag-max`: Maximum lag across all partitions
 - `records-lag-avg`: Average lag across all partitions
 
+### Custom Tags
+All lag metrics include the following tags:
+- `consumer_group`: The Kafka consumer group ID
+- `metric_type`: Set to "consumer_lag" for lag-related metrics
+- Any additional tags from the original Kafka metric
+
+You can add custom tags by configuring additional `MeterFilter` beans in your application.
+
 ## Components
 
 ### KafkaAdmin Configuration
