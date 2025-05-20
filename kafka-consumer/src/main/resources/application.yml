@@ -19,7 +19,7 @@ spring:
   application:
     name: kafka-consumer
   jmx:
-    enabled: true  # Enable Spring JMX support
+    enabled: false  # Enable Spring JMX support
   kafka:
     consumer:
       bootstrap-servers: localhost:9092
