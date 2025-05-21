@@ -61,6 +61,49 @@ To integrate this module into your service (e.g., kafka-consumer), follow these 
          application: ${spring.application.name}
    ```
 
+5. **CustomLagMetric Configuration**
+   ```yaml
+   # Required configuration for CustomLagMetric
+   spring:
+     application:
+       name: your-application-name  # Used as a tag in the metric
+     kafka:
+       consumer:
+         group-id: your-consumer-group-id  # Required for metric tagging
+
+   # CloudWatch Integration (for AWS deployments)
+   management:
+     metrics:
+       export:
+         cloudwatch:
+           namespace: CustomKafkaMetrics  # Your desired CloudWatch namespace
+           step: 1m  # How often to publish to CloudWatch
+           batch-size: 20
+           enabled: true  # Enable CloudWatch metrics export
+       tags:
+         application: ${spring.application.name}
+     endpoints:
+       web:
+         exposure:
+           include: "health,info,metrics,prometheus"
+
+   # Configure which metrics to expose (ensure CustomLagMetric is included)
+   metrics:
+     filter:
+       allowed:
+         - custom.kafka.consumer.lag  # The CustomLagMetric
+         - kafka.consumer.fetch.manager.records.lag.max  # Required source metric
+   ```
+
+   The CustomLagMetric will:
+   - Track consumer lag using the metric name `custom.kafka.consumer.lag`
+   - Include tags:
+     - `consumer_group`: Your consumer group ID
+     - `application`: Your application name
+     - `metric_type`: "consumer_lag"
+   - Maintain last known valid lag value to avoid NaN values
+   - Automatically publish to CloudWatch when deployed to AWS (requires proper IAM permissions)
+
 ## Available Metrics
 
 The module provides the following Kafka consumer lag metrics:
