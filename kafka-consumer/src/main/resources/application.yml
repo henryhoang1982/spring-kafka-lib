@@ -93,5 +93,3 @@ app:
 kafka:
   metrics:
     step: PT10S
-    cloudwatch:
-      enabled: false  # Disable custom CloudWatch exporter

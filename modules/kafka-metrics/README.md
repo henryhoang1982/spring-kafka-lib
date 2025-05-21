@@ -95,6 +95,18 @@ To integrate this module into your service (e.g., kafka-consumer), follow these 
          - kafka.consumer.fetch.manager.records.lag.max  # Required source metric
    ```
 
+   > ⚠️ **Important CloudWatch Configuration Notes**:
+   > - Keep `management.metrics.export.cloudwatch.step` at 1m or higher to avoid performance issues
+   > - Setting step < 1m (e.g., 30s) can cause:
+   >   - CPU spikes from frequent CloudWatch API calls
+   >   - Memory pressure from increased metric collection cycles
+   >   - Potential OutOfMemory in resource-constrained environments
+   > - If you need higher resolution metrics, consider:
+   >   - Increasing container memory limits
+   >   - Adjusting JVM heap settings
+   >   - Using Prometheus with custom scrape intervals instead
+   >   - Implementing metric aggregation at the CloudWatch level
+
    The CustomLagMetric will:
    - Track consumer lag using the metric name `custom.kafka.consumer.lag`
    - Include tags:
