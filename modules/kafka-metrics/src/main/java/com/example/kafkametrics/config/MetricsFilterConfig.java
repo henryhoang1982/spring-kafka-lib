@@ -84,8 +84,9 @@ public class MetricsFilterConfig {
             private boolean shouldRemoveTag(String tagKey) {
                 // List of tag keys to remove
                 return tagKey.equals("client.id") ||      // Remove client-id tag
-                       tagKey.equals("kafka.version") ||  // Remove kafka version tag
-                       tagKey.equals("spring.id");        // Remove spring id tag
+                    tagKey.equals("kafka.version") ||  // Remove kafka version tag
+                    tagKey.equals("spring.id") ||
+                    tagKey.equals("application");        // Remove spring id tag
             }
         };
     }

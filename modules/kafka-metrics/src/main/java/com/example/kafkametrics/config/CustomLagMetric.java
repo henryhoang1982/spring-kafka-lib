@@ -36,7 +36,7 @@ public class CustomLagMetric implements MeterBinder {
         Gauge.builder(CUSTOM_METRIC_NAME, registry, this::fetchLagValue)
                 .tags(Tags.of(
                         "consumer_group", consumerGroupId,
-                        "application", applicationName,
+//                        "application", applicationName,
                         "metric_type", "consumer_lag"
                 ))
                 .description("Custom consumer lag metric derived from records-lag-max")

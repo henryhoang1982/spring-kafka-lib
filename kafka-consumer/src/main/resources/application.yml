@@ -7,8 +7,8 @@ management:
       exposure:
         include: "health,info,metrics,prometheus"
   metrics:
-    tags:
-      application: ${spring.application.name:kafka-consumer-app}
+#    tags:
+#      application: ${spring.application.name:kafka-consumer-app}
     export:
       prometheus:
         enabled: true
