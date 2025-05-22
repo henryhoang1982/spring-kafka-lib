@@ -84,7 +84,13 @@ metrics:
 
 app:
   kafka:
-    topic: topic.x 
+    group-ids:
+      topic-x:
+        topic: topic.x
+        group-id: group-x
+      topic-y:
+        topic: topic-y
+        group-id: group-y
 
 # JVM optimization settings to be set as environment variables in ECS task definition
 # JAVA_OPTS: "-Xms512m -Xmx1536m -XX:+UseZGC -XX:+ZGenerational -XX:ConcGCThreads=2 -XX:ZCollectionInterval=5 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp" 

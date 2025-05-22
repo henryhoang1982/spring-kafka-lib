@@ -7,6 +7,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -14,32 +16,39 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 public class MessageProducer {
 
-    @Value("${app.kafka.topic}")
-    private String topicName;
-
-    @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
-    
+    private final List<String> topics;
+    private final KafkaTemplate<String, String> kafkaTemplate;
     private final AtomicLong messageCounter = new AtomicLong(0);
 
-    // Method to send a single message (can be kept for other uses or removed if not needed)
-    public void sendMessage(String message) {
-        this.kafkaTemplate.send(topicName, message);
-        log.info("Sent single message: {} to topic: {}", message, topicName);
+    public MessageProducer(
+            @Value("${app.kafka.topics}") String topicsString,
+            KafkaTemplate<String, String> kafkaTemplate) {
+        this.topics = Arrays.asList(topicsString.split(","));
+        this.kafkaTemplate = kafkaTemplate;
+        log.info("Initialized MessageProducer with topics: {}", this.topics);
+    }
+
+    // Method to send a single message to a specific topic
+    public void sendMessage(String topic, String message) {
+        this.kafkaTemplate.send(topic, message);
+        log.info("Sent single message: {} to topic: {}", message, topic);
     }
 
     @Scheduled(fixedRate = 1000) // Run every second (faster than consumer processes)
     public void sendBatchMessages() {
-        int batchSize = 20; // Increased batch size
-        log.info("Sending batch of {} messages to topic {}...", batchSize, topicName);
+        int batchSize = 100; // Increased batch size
         
-        for (int i = 0; i < batchSize; i++) {
-            long count = messageCounter.incrementAndGet();
-            String randomMessage = "Message " + count + ": " + UUID.randomUUID().toString();
-            this.kafkaTemplate.send(topicName, randomMessage);
-            log.debug("Sent message: {}", randomMessage); // Log individual messages at DEBUG level
+        for (String topic : topics) {
+            log.info("Sending batch of {} messages to topic {}...", batchSize, topic);
+            
+            for (int i = 0; i < batchSize; i++) {
+                long count = messageCounter.incrementAndGet();
+                String randomMessage = "Message " + count + ": " + UUID.randomUUID().toString();
+                this.kafkaTemplate.send(topic, randomMessage);
+                log.debug("Sent message: {} to topic: {}", randomMessage, topic); // Log individual messages at DEBUG level
+            }
+            
+            log.info("Successfully sent batch of {} messages to topic: {}", batchSize, topic);
         }
-        
-        log.info("Successfully sent batch of {} messages to topic: {}", batchSize, topicName);
     }
 } 

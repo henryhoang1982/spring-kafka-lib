@@ -9,4 +9,4 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 app:
   kafka:
-    topic: topic.x 
+    topics: topic.x,topic-y 
