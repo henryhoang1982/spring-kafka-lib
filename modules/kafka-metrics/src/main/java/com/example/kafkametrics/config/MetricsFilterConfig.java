@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -65,29 +66,25 @@ public class MetricsFilterConfig {
                     );
 
                     // Create new tags list, excluding unwanted default tags
-                    List<Tag> tags = id.getTags().stream()
+                    List<Tag> excludedTags = id.getTags().stream()
                         .filter(tag -> !shouldRemoveTag(tag.getKey()))
                         .collect(java.util.stream.Collectors.toList());
 
+                    List<Tag> customTags = new ArrayList<>();
+
                     // Add our custom tags
-                    tags.add(Tag.of("consumer_group", consumerGroupId));
-                    tags.add(Tag.of("metric_type", "consumer_lag"));
+                    customTags.add(Tag.of("consumerGroupId", consumerGroupId));
+                    customTags.add(Tag.of("metricType", "consumer_lag"));
                     
-                    // Also add application name if available
-                    String appName = System.getProperty("spring.application.name");
-                    if (appName != null) {
-                        tags.add(Tag.of("application", appName));
-                    }
-                    
-                    return id.withTags(tags);
+                    return id.replaceTags(excludedTags).withTags(customTags);
                 }
                 return id;
             }
 
             private boolean shouldRemoveTag(String tagKey) {
                 // List of tag keys to remove
-                return tagKey.equals("client-id") ||      // Remove client-id tag
-                       tagKey.equals("kafka-version") ||  // Remove kafka version tag
+                return tagKey.equals("client.id") ||      // Remove client-id tag
+                       tagKey.equals("kafka.version") ||  // Remove kafka version tag
                        tagKey.equals("spring.id");        // Remove spring id tag
             }
         };
