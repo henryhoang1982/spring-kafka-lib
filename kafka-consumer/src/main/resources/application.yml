@@ -74,7 +74,7 @@ logging:
 metrics:
   filter:
     allowed:
-      - kafka.consumer.totalLag  # Our custom aggregated lag metric
+      - kafka.consumer.group.lag  # Our custom aggregated lag metric
       - kafka.consumer.fetch.manager.records.lag.max
       - kafka.consumer.fetch.manager.records.lag
       - kafka.consumer.fetch.manager.records.lag.avg
