@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.3
+    image: confluentinc/cp-zookeeper:7.9.0
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -13,7 +13,7 @@ services:
       - kafka-net
 
   kafka:
-    image: confluentinc/cp-kafka:7.5.3
+    image: confluentinc/cp-kafka:7.9.0
     container_name: kafka
     depends_on:
       - zookeeper
@@ -31,7 +31,7 @@ services:
       - kafka-net
 
   kafka-init:
-    image: confluentinc/cp-kafka:7.5.3
+    image: confluentinc/cp-kafka:7.9.0
     container_name: kafka-init
     depends_on:
       - kafka
@@ -45,6 +45,45 @@ services:
         echo 'Topics created successfully'"
     networks:
       - kafka-net
+
+  kafka-consumer:
+    image: azul/zulu-openjdk-alpine:21-jre-headless-latest
+    container_name: kafka-consumer
+    volumes:
+      - ../kafka-consumer/build/libs/kafka-consumer-0.0.1-SNAPSHOT.jar:/app/app.jar
+    depends_on:
+      - kafka
+      - kafka-init
+    ports:
+      - "8081:8081"
+      - "9010:9010"  # JMX RMI port
+      - "9011:9011"  # JMX RMI registry
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: consumer-group-1
+      MANAGEMENT_SERVER_PORT: 8081
+      SPRING_KAFKA_PROPERTIES_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET: earliest
+      SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES: "*"
+      JAVA_TOOL_OPTIONS: >-
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.port=9010
+        -Dcom.sun.management.jmxremote.rmi.port=9011
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Djava.rmi.server.hostname=localhost
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2049M
+        reservations:
+          cpus: '0.5'
+          memory: 1024M
+    networks:
+      - kafka-net
+    command: ["java", "-jar", "/app/app.jar"]
 
 networks:
   kafka-net:

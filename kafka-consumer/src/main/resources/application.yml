@@ -76,6 +76,8 @@ metrics:
     allowed:
       - kafka.consumer.totalLag  # Our custom aggregated lag metric
       - kafka.consumer.fetch.manager.records.lag.max
+      - kafka.consumer.fetch.manager.records.lag
+      - kafka.consumer.fetch.manager.records.lag.avg
       - custom.kafka.consumer.lag
       - jvm.memory.used
       - system.cpu.usage
