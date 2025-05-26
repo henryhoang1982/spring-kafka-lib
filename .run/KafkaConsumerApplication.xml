@@ -2,6 +2,7 @@
   <configuration default="false" name="KafkaConsumerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
     <module name="spring-kafka-projects.kafka-consumer.main" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.example.kafkaconsumer.KafkaConsumerApplication" />
+    <option name="VM_PARAMETERS" value="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9010 -Dcom.sun.management.jmxremote.rmi.port=9011 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=localhost" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>
