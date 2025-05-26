@@ -39,6 +39,11 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
+        security.protocol: SSL
+        ssl.truststore.type: JKS
+        ssl.keystore.type: JKS
+        ssl.truststore.password: ${SSL_PASSWORD}
+        ssl.keystore.password: ${SSL_PASSWORD}
         # Enable JMX reporting for Kafka consumer metrics
         metrics.recording.level: INFO
         # Set metrics sampling window to 5 seconds (default is 30s)
