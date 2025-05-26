@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaAdmin;
-import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,23 +18,8 @@ public class KafkaAdminConfig {
     @Value("${spring.kafka.consumer.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${spring.kafka.consumer.security.protocol:PLAINTEXT}")
+    @Value("${spring.kafka.consumer.properties.security.protocol:PLAINTEXT}")
     private String securityProtocol;
-
-    @Value("${spring.kafka.consumer.ssl.trust-store-location:}")
-    private String trustStoreLocation;
-
-    @Value("${spring.kafka.consumer.ssl.trust-store-password:}")
-    private String trustStorePassword;
-
-    @Value("${spring.kafka.consumer.ssl.key-store-location:}")
-    private String keyStoreLocation;
-
-    @Value("${spring.kafka.consumer.ssl.key-store-password:}")
-    private String keyStorePassword;
-
-    @Value("${spring.kafka.consumer.ssl.key-password:}")
-    private String keyPassword;
 
     @Bean
     public KafkaAdmin kafkaAdmin() {
@@ -49,23 +33,25 @@ public class KafkaAdminConfig {
 
         // Configure SSL if protocol is SSL or SASL_SSL
         if (securityProtocol.contains("SSL")) {
-            log.info("Configuring SSL for KafkaAdmin");
+            log.info("Configuring SSL for KafkaAdmin using JVM system properties");
             
-            if (StringUtils.hasText(trustStoreLocation)) {
-                configs.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, trustStoreLocation);
+            // Use the same JVM system properties that are set in docker-entrypoint.sh
+            String trustStore = System.getProperty("javax.net.ssl.trustStore");
+            String trustStorePassword = System.getProperty("javax.net.ssl.trustStorePassword");
+            String keyStore = System.getProperty("javax.net.ssl.keyStore");
+            String keyStorePassword = System.getProperty("javax.net.ssl.keyStorePassword");
+
+            if (trustStore != null) {
+                configs.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, trustStore);
                 configs.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, trustStorePassword);
-                log.debug("Configured truststore location: {}", trustStoreLocation);
+                log.debug("Configured truststore location from JVM property: {}", trustStore);
             }
 
-            if (StringUtils.hasText(keyStoreLocation)) {
-                configs.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keyStoreLocation);
+            if (keyStore != null) {
+                configs.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keyStore);
                 configs.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, keyStorePassword);
-                
-                // Key password defaults to keystore password if not specified
-                String actualKeyPassword = StringUtils.hasText(keyPassword) ? keyPassword : keyStorePassword;
-                configs.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, actualKeyPassword);
-                
-                log.debug("Configured keystore location: {}", keyStoreLocation);
+                configs.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, keyStorePassword);
+                log.debug("Configured keystore location from JVM property: {}", keyStore);
             }
 
             // Additional SSL configurations
